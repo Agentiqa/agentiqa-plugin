@@ -23,13 +23,16 @@ The testing agent:
 **Run exactly ONE command with `run_in_background: true`. The CLI auto-starts its own engine, auto-detects devices, and auto-loads the API key.**
 
 ```bash
-agentiqa explore "<prompt>" [flags]
+agentiqa explore "<prompt>" --auto-approve [flags]
 ```
+
+**CRITICAL:** Always pass `--auto-approve` when invoking this CLI. Without it, the CLI pauses on two interactive "Press Enter to approve" checkpoints (scope + findings) and the background task will appear to hang waiting on stdin. There is no human at the terminal to press Enter.
 
 **IMPORTANT:** Do NOT use `2>&1` — keep stderr separate so the JSON on stdout stays clean.
 
 ### Required
 - **prompt** (positional): What to test, e.g. `"Test the checkout flow"`
+- **`--auto-approve`**: Required for non-interactive agent invocation (see above)
 
 ### Auto-Detection
 When no `--target` is specified, the CLI auto-detects running Android emulators and iOS simulators. You do NOT need to specify `--target`, `--package`, or `--device` — just provide the prompt.
@@ -45,8 +48,7 @@ When no `--target` is specified, the CLI auto-detects running Android emulators 
 | `--hint "<text>"` | Suggesting specific things to test (repeatable) |
 | `--known-issue "<text>"` | Suppressing known issues (repeatable) |
 | `--credential "name:secret"` | Providing login credentials (repeatable) |
-| `--realtime` | Using realtime agent for mobile (default: classic) |
-| `--no-orchestrator` | Bypassing orchestrator in realtime mode |
+| `--json` | Emit raw JSON for checkpoints too (cleaner for machine parsing) |
 | `--no-artifacts` | Skipping screenshot/video saving to temp dir |
 | `--verbose` | Showing detailed action/observation logs |
 
@@ -54,18 +56,19 @@ When no `--target` is specified, the CLI auto-detects running Android emulators 
 
 **Test whatever's on the mobile screen:**
 ```bash
-agentiqa explore "Test the Settings screen"
+agentiqa explore "Test the Settings screen" --auto-approve
 ```
 
 **Test a web app:**
 ```bash
-agentiqa explore "Test the signup flow" --url http://localhost:3001/signup
+agentiqa explore "Test the signup flow" --url http://localhost:3001/signup --auto-approve
 ```
 
 **Test with context:**
 ```bash
 agentiqa explore "Test the new checkout" \
   --url http://localhost:3001/checkout \
+  --auto-approve \
   --feature "Shopping cart checkout with Stripe" \
   --hint "Try invalid card numbers" \
   --hint "Try empty cart" \

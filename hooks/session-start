@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# SessionStart hook: auto-installs CLI, Playwright browsers, and checks auth
+set -euo pipefail
+
+messages=()
+
+# 1. Auto-install agentiqa CLI if missing
+if ! command -v agentiqa &>/dev/null; then
+  if npm install -g agentiqa &>/dev/null; then
+    messages+=("Agentiqa CLI installed successfully.")
+  else
+    messages+=("⚠️ Could not auto-install agentiqa CLI. Run: npm install -g agentiqa (may need sudo)")
+  fi
+fi
+
+# 2. Ensure Playwright browsers are installed (Chromium + headless shell)
+if command -v agentiqa &>/dev/null; then
+  # Find the engine-core package that agentiqa uses for Playwright
+  CLI_PATH=$(command -v agentiqa 2>/dev/null)
+  REAL_PATH=$(readlink -f "$CLI_PATH" 2>/dev/null || readlink "$CLI_PATH" 2>/dev/null || echo "$CLI_PATH")
+
+  # Check if Playwright chromium is available by doing a dry-run
+  if ! npx playwright install --dry-run chromium &>/dev/null 2>&1; then
+    # Playwright not found via npx, try installing browsers
+    if npx playwright install chromium &>/dev/null 2>&1; then
+      messages+=("Playwright Chromium installed.")
+    fi
+  fi
+
+  # Also try from the agentiqa engine-core if it exists locally
+  ENGINE_CORE=""
+  if [ -f "${REAL_PATH}" ]; then
+    # Walk up from cli.js to find engine-core
+    CANDIDATE="$(dirname "$(dirname "$(dirname "$REAL_PATH")")")/packages/engine-core"
+    if [ -d "$CANDIDATE" ]; then
+      ENGINE_CORE="$CANDIDATE"
+    fi
+  fi
+
+  if [ -n "$ENGINE_CORE" ] && [ -d "$ENGINE_CORE" ]; then
+    (cd "$ENGINE_CORE" && npx playwright install chromium &>/dev/null 2>&1) || true
+  fi
+fi
+
+# 3. Check authentication and prompt login if needed
+if command -v agentiqa &>/dev/null; then
+  if ! agentiqa whoami &>/dev/null; then
+    messages+=("Agentiqa requires authentication. Running 'agentiqa login'...")
+    if agentiqa login 2>/dev/null; then
+      messages+=("Agentiqa login successful.")
+    else
+      messages+=("⚠️ Agentiqa login failed or timed out. Run manually: agentiqa login")
+    fi
+  fi
+fi
+
+# If nothing to report, exit silently
+if [ ${#messages[@]} -eq 0 ]; then
+  echo '{}'
+  exit 0
+fi
+
+msg=$(printf '%s\n' "${messages[@]}")
+
+escape_for_json() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
+escaped=$(escape_for_json "$msg")
+
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$escaped"
+else
+  printf '{\n  "additional_context": "%s"\n}\n' "$escaped"
+fi
+
+exit 0

@@ -1,0 +1,17 @@
+{
+  "name": "agentiqa",
+  "owner": {
+    "name": "Agentiqa",
+    "email": "a@agentiqa.com"
+  },
+  "metadata": {
+    "description": "AI-powered testing tools for web and mobile apps"
+  },
+  "plugins": [
+    {
+      "name": "agentiqa",
+      "source": "./",
+      "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user."
+    }
+  ]
+}

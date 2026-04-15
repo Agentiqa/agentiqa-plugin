@@ -1,0 +1,14 @@
+{
+  "name": "agentiqa",
+  "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Agentiqa",
+    "email": "a@agentiqa.com"
+  },
+  "homepage": "https://agentiqa.com",
+  "repository": "https://github.com/agentiqa/agentiqa-plugin",
+  "license": "MIT",
+  "keywords": ["testing", "qa", "mobile", "web", "ai", "automation"],
+  "hooks": "./hooks/hooks.json"
+}

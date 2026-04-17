@@ -34,13 +34,22 @@ agentiqa explore "<prompt>" --auto-approve [flags]
 - **prompt** (positional): What to test, e.g. `"Test the checkout flow"`
 - **`--auto-approve`**: Required for non-interactive agent invocation (see above)
 
+### URL Extraction (CRITICAL)
+
+**If the user's message contains a URL (e.g. `https://...`, `http://...`, `localhost:...`), you MUST extract it and pass it as `--url <extracted-url>`.** Do NOT put the URL inside the prompt string — it must be a separate `--url` flag. Without `--url`, the CLI cannot detect the web target and falls back to full device discovery mode, which takes 3-5x longer.
+
+Example: if the user says *"test https://example.com/login for bugs"*, run:
+```bash
+agentiqa explore "Test the login page for bugs" --url https://example.com/login --auto-approve
+```
+
 ### Auto-Detection
 When no `--target` is specified, the CLI auto-detects running Android emulators and iOS simulators. You do NOT need to specify `--target`, `--package`, or `--device` — just provide the prompt.
 
 ### Optional Flags
 | Flag | Use when... |
 |------|------------|
-| `--url <url>` | Testing a web app |
+| `--url <url>` | Testing a web app — **always pass when user provides a URL** |
 | `--target android\|ios\|web` | Forcing a specific platform |
 | `--package <name>` | Launching a specific Android app before testing |
 | `--bundle-id <id>` | Launching a specific iOS app before testing |

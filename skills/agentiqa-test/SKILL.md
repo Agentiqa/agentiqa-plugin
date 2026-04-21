@@ -36,9 +36,24 @@ agentiqa explore "<prompt>" --auto-approve [flags]
 
 ### URL Extraction (CRITICAL)
 
-**If the user's message contains a URL (e.g. `https://...`, `http://...`, `localhost:...`), you MUST extract it and pass it as `--url <extracted-url>`.** Do NOT put the URL inside the prompt string — it must be a separate `--url` flag. Without `--url`, the CLI cannot detect the web target and falls back to full device discovery mode, which takes 3-5x longer.
+**If the user's message contains a URL OR a bare hostname, you MUST extract it and pass it as `--url <extracted-url>`.** Do NOT put the URL inside the prompt string — it must be a separate `--url` flag. Without `--url`, the CLI cannot detect the web target, hard-errors with `--url is required for web testing`, or falls back to full device discovery mode (3–5x slower).
 
-Example: if the user says *"test https://example.com/login for bugs"*, run:
+Extraction rules:
+
+- **URL with protocol** (`https://foo.bar/path`, `http://foo.bar`) → pass verbatim.
+- **`localhost[:PORT][/path]`** → prefix with `http://`. Example: `localhost:3000/checkout` → `http://localhost:3000/checkout`.
+- **Bare hostname with at least one dot** (`example.com`, `acme.io`, `foo.bar.baz`, with optional `/path`) → prefix with `https://`. Example: `example.com` → `https://example.com`; `acme.io/login` → `https://acme.io/login`.
+- **IPv4 with port** (`127.0.0.1:8080/path`) → prefix with `http://`.
+
+Examples:
+
+- *"test example.com for bugs"* → `--url https://example.com`
+- *"QA acme.io/login"* → `--url https://acme.io/login`
+- *"test my app at localhost:3000/checkout"* → `--url http://localhost:3000/checkout`
+- *"test https://example.com/login for bugs"* → `--url https://example.com/login`
+
+Full command shape:
+
 ```bash
 agentiqa explore "Test the login page for bugs" --url https://example.com/login --auto-approve
 ```

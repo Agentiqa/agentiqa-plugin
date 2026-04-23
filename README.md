@@ -4,6 +4,17 @@ AI-powered testing for web and mobile apps. An AI agent explores your app like a
 
 Works with **Claude Code** and **Cursor**.
 
+## What it finds
+
+- Visual bugs (layout issues, overflow, contrast problems)
+- Logical bugs (broken validation, stale state, wrong behavior)
+- UX issues (confusing flows, missing feedback)
+- Accessibility problems
+
+Each issue includes severity, category, confidence score, and step-by-step reproduction instructions.
+
+[See how it works](https://agentiqa.com/en#how-it-works)
+
 ## Install
 
 ### Claude Code
@@ -59,15 +70,6 @@ The skill runs `agentiqa explore` in the background and presents results when do
 - Parallel testing supported — ask Cursor to test multiple pages at once
 - Results include JSON with issues, severity, confidence, and reproduction steps
 
-## What it finds
-
-- Visual bugs (layout issues, overflow, contrast problems)
-- Logical bugs (broken validation, stale state, wrong behavior)
-- UX issues (confusing flows, missing feedback)
-- Accessibility problems
-
-Each issue includes severity, category, confidence score, and step-by-step reproduction instructions.
-
 ## Example (Cursor)
 
 ```
@@ -78,7 +80,7 @@ Output:
 ```
 Done — 12 actions, 0 issues in 84s
 Verdict: ship
-Artifacts: 12 screenshots saved
+Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
 ```
 
 ## Links

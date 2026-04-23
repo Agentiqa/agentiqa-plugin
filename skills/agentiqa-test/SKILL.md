@@ -57,12 +57,10 @@ Run this command in the background. Note the background command output file path
 
 **CRITICAL SUPER IMPORTANT: Monitoring background commands:**
 ```bash
-while ! tail -n 2 {backgroundCommandOutputFilePath} | grep -q "^Exited with code:"; do sleep 1; done
+while ! grep -q "\[agentiqa\] Done" {backgroundCommandOutputFilePath} 2>/dev/null && ! grep -q "^Exited with code:" {backgroundCommandOutputFilePath} 2>/dev/null; do sleep 2; done
 ```
 
-In case the foreground monitor times out, just re-run the same while command to resume waiting.
-
-This polls the background task output file until the process exits. If the foreground monitor times out, just re-run the same `while` command — it will resume waiting.
+This polls until the CLI prints its `[agentiqa] Done` line OR the process exits. If the foreground monitor times out, just re-run the same `while` command — it will resume waiting.
 
 **Step 3: Read results**
 

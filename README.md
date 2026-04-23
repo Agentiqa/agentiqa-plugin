@@ -13,7 +13,7 @@ Works with **Claude Code** and **Cursor**.
 
 Each issue includes severity, category, confidence score, and step-by-step reproduction instructions.
 
-[See how it works](https://agentiqa.com/en#how-it-works)
+[Learn more](https://agentiqa.com/en)
 
 ## Example (Cursor)
 

@@ -1,6 +1,7 @@
 {
   "name": "agentiqa",
-  "displayName": "AgentIQA",
+  "displayName": "Agentiqa",
+  "logo": "assets/logo.svg",
   "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user.",
   "version": "0.2.0",
   "author": {

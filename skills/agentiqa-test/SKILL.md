@@ -23,6 +23,20 @@ The testing agent:
 
 **YOU MUST FOLLOW THESE STEPS IN ORDER. DO NOT SKIP ANY STEP.**
 
+**Step 0: Ensure CLI is installed and authenticated (MANDATORY — run in foreground)**
+
+Run these checks EVERY TIME before launching explore. Do NOT skip. Do NOT use `npx --yes agentiqa` as a substitute — the CLI must be globally installed.
+
+```bash
+# Install CLI if missing
+command -v agentiqa >/dev/null 2>&1 || npm install -g agentiqa
+
+# Check auth — if not logged in, run login (opens browser)
+agentiqa whoami >/dev/null 2>&1 || agentiqa login
+```
+
+YOU MUST RUN BOTH CHECKS AND WAIT FOR THEM TO COMPLETE. If `agentiqa login` opens a browser, wait for the user to complete authentication before proceeding.
+
 **Step 1: Install Chromium (MANDATORY before first explore — run in foreground, wait for it to finish)**
 
 ```bash
@@ -174,8 +188,8 @@ If the command fails:
 2. **Exit code 1:**
    Engine/session error — check stderr for details
 3. **"Gemini API key not found":**
-   Tell the user to run `agentiqa login` or `export GEMINI_API_KEY=...`
+   Run `agentiqa login` (opens browser for authentication). Do NOT tell the user to do it manually — run it yourself and wait for completion.
 4. **"No mobile devices detected":**
    Tell the user to start an emulator/simulator
 5. **Playwright/Chromium missing:**
-   Run `npx playwright install chromium` to install the browser binary. This is needed on first use.
+   Run `npx playwright install chromium` yourself — do not ask the user to do it manually.

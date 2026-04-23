@@ -15,6 +15,19 @@ Each issue includes severity, category, confidence score, and step-by-step repro
 
 [See how it works](https://agentiqa.com/en#how-it-works)
 
+## Example (Cursor)
+
+```
+use agentiqa to test https://s.agentiqa.com/en/pricing
+```
+
+Output:
+```
+Done — 12 actions, 0 issues in 84s
+Verdict: ship
+Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
+```
+
 ## Install
 
 ### Claude Code
@@ -69,19 +82,6 @@ The skill runs `agentiqa explore` in the background and presents results when do
 - Tests run in **background mode** — no shell timeout issues even for long runs (3-10 min)
 - Parallel testing supported — ask Cursor to test multiple pages at once
 - Results include JSON with issues, severity, confidence, and reproduction steps
-
-## Example (Cursor)
-
-```
-use agentiqa to test https://s.agentiqa.com/en/pricing
-```
-
-Output:
-```
-Done — 12 actions, 0 issues in 84s
-Verdict: ship
-Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
-```
 
 ## Links
 

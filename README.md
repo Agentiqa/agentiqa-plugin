@@ -63,6 +63,16 @@ agentiqa login
 
 Playwright Chromium is auto-installed with the CLI (`npm install -g agentiqa`). No extra steps needed.
 
+### For video recording (optional)
+
+Install ffmpeg to enable video recording of test sessions:
+
+```bash
+brew install ffmpeg
+```
+
+Without ffmpeg, tests still work — screenshots are saved as fallback.
+
 ## Usage
 
 Once installed, both Claude Code and Cursor automatically use the skill when you ask to test your app:

@@ -33,6 +33,11 @@ command -v agentiqa >/dev/null 2>&1 || npm install -g agentiqa
 
 # Check auth — if not logged in, run login (opens browser)
 agentiqa whoami >/dev/null 2>&1 || agentiqa login
+
+# Check ffmpeg for video recording (optional — screenshots work without it)
+if ! command -v ffmpeg >/dev/null 2>&1; then
+  echo "[agentiqa] ffmpeg not found — video recording will be disabled. Install with: brew install ffmpeg"
+fi
 ```
 
 YOU MUST RUN BOTH CHECKS AND WAIT FOR THEM TO COMPLETE. If `agentiqa login` opens a browser, wait for the user to complete authentication before proceeding.

@@ -5,10 +5,7 @@ Agentiqa app builds the command for you, mints a service key, and
 encodes the right environment so the CLI auto-installs and starts
 immediately.
 
-Works the same way from the desktop app, `web.agentiqa.com`, and
-`s.web.agentiqa.com`. Prod uses the `@latest` npm tag and no API
-override; staging uses `@staging` and prepends
-`AGENTIQA_API_URL=https://s.agentiqa.com`.
+Works the same way from the desktop app and `web.agentiqa.com`.
 
 ## TL;DR
 
@@ -32,13 +29,9 @@ override; staging uses `@staging` and prepends
 ## What the command looks like
 
 ```
-AGENTIQA_API_URL=<env> AGENTIQA_SERVICE_KEY=sk_<key> npx agentiqa@<tag> run [--label-ids id1,id2,...] [--mode parallel]
+AGENTIQA_SERVICE_KEY=sk_<key> npx agentiqa@latest run [--label-ids id1,id2,...] [--mode parallel]
 ```
 
-- **Staging** sets `AGENTIQA_API_URL=https://s.agentiqa.com` and
-  `npx agentiqa@staging`.
-- **Prod** drops `AGENTIQA_API_URL` (CLI defaults to `agentiqa.com`)
-  and uses `npx agentiqa@latest`.
 - `--label-ids` is included only when a label filter is active on the
   page. With no filter, the command runs **all** plans in the project.
 - `--mode parallel` is included only when the Parallel toggle is on.

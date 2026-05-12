@@ -46,21 +46,8 @@ AGENTIQA_SERVICE_KEY=sk_<key> npx agentiqa@latest run [--label-ids id1,id2,...] 
 4. Streams per-step status to stdout; saves screenshots to a temp
    directory printed on exit.
 
-## Redacted on screen, real in clipboard
-
-The modal shows `sk_••••••••••` so the key is safe during pair sessions
-and screen-shares — the **real** key goes to the clipboard on Copy.
-
 ## Re-using a key
 
 Each project remembers its minted key (idempotent endpoint). Re-opening
 the modal on the same project reuses the existing key. Rotate via
 **Settings → Service Keys**.
-
-## Troubleshooting
-
-- **`401`** — service key revoked. Re-open the modal to mint fresh.
-- **`No test plans matched`** — wrong label filter or wrong project.
-- **`npx agentiqa: not found` / hangs** — `npm cache clean --force`.
-- **`Engine is restarting`** — port conflict with another local agent;
-  kill it and retry.

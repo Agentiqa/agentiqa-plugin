@@ -93,12 +93,12 @@ The skill runs `agentiqa explore` in the background and presents results when do
 - Parallel testing supported — ask Cursor to test multiple pages at once
 - Results include JSON with issues, severity, confidence, and reproduction steps
 
-## Run saved plans from the CLI
+## Related: run saved plans from a terminal
 
-The Agentiqa app exposes a **CLI** button on the Test Plans page that
-builds a one-line shell command for running the project's saved plans
-locally. Mints a service key, encodes the right `npx agentiqa@…` tag,
-and respects the current label filter + parallel toggle.
+If you also use the **Agentiqa app** (`web.agentiqa.com` or the
+desktop app) to manage saved test plans, those plans can be triggered
+from a single shell command — useful for CI hooks, scripted reruns,
+or just skipping the UI for a known regression sweep.
 
 See [`docs/cli-quickstart.md`](docs/cli-quickstart.md) for the
 walkthrough with screenshots.

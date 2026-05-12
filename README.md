@@ -65,7 +65,7 @@ Run saved test plans non-interactively with a service key — drop into any buil
 AGENTIQA_SERVICE_KEY=sk_… agentiqa run --label-ids regression
 ```
 
-The Test Plans page in the [Agentiqa app](https://agentiqa.com) has a **CLI** button that builds the exact one-liner for the plans you select. See [`docs/cli-quickstart.md`](docs/cli-quickstart.md) for the full walkthrough.
+The Test Plans page in the [Agentiqa app](https://agentiqa.com) has a **CLI** button that builds the exact one-liner for the plans you select. See [`docs/ci-quickstart.md`](docs/ci-quickstart.md) for the full walkthrough.
 
 ## Setup details
 

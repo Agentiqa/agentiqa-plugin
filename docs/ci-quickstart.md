@@ -1,4 +1,4 @@
-# Run from CLI — quick-start
+# Run from CI — quick-start
 
 Run your saved Agentiqa test plans from a terminal in one command. The
 Agentiqa app builds the command for you, mints a service key, and
@@ -12,19 +12,19 @@ Works the same way from the desktop app and `web.agentiqa.com`.
 1. Open a project → **Test Plans**.
 2. Click the **CLI** button (top right of the list).
 
-   ![CLI button](images/cli-quickstart/01-cli-button.png)
+   ![CLI button](images/ci-quickstart/01-cli-button.png)
 
 3. (Optional) Filter plans by label and flip the **Parallel** toggle
    first — the modal will mirror both.
 4. Copy the command from the modal.
 
-   ![Run from CLI modal](images/cli-quickstart/02-modal-with-command.png)
+   ![Run from CLI modal](images/ci-quickstart/02-modal-with-command.png)
 
 5. Paste into a terminal → Enter. The CLI installs, authenticates with
    the minted key, downloads the plans, and runs them in a local
    Playwright browser.
 
-   ![Terminal running the pasted command](images/cli-quickstart/03-terminal-running.jpeg)
+   ![Terminal running the pasted command](images/ci-quickstart/03-terminal-running.jpeg)
 
 ## What the command looks like
 

@@ -2,7 +2,7 @@
 
 AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps.
 
-Use it from your IDE (Claude Code, Cursor), from a terminal, or as a CI/CD step.
+Use it from a coding agent (Claude Code, Cursor), from a terminal, or as a CI step.
 
 ## What it finds
 
@@ -57,13 +57,7 @@ Verdict: ship
 Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
 ```
 
-**Cursor notes:**
-
-- Tests run in background mode — no shell timeout issues even for long runs (3-10 min).
-- Parallel testing supported — ask Cursor to test multiple pages at once.
-- Results include JSON with issues, severity, confidence, and reproduction steps.
-
-### CI/CD
+### CI
 
 Run saved test plans non-interactively with a service key — drop into any build step:
 

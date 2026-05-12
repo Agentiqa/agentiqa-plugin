@@ -2,7 +2,11 @@
 
 AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps.
 
-Works with **Claude Code** and **Cursor**.
+Three ways to use it:
+
+- **From your terminal** — `agentiqa explore <url>`, `agentiqa run --plan ...`, or as a CI/CD step.
+- **In your IDE** — Claude Code, Cursor, Codex (this repo ships the plugin).
+- **From the [Agentiqa app](https://agentiqa.com)** — manage saved test plans visually, then trigger them from a terminal with one paste.
 
 ## What it finds
 
@@ -15,20 +19,37 @@ Each issue includes severity, category, confidence score, and step-by-step repro
 
 [Learn more](https://agentiqa.com/en)
 
-## Example (Cursor)
+## Quick start — terminal
 
-```
-use agentiqa to test https://s.agentiqa.com/en/pricing
+```bash
+npm install -g agentiqa
+agentiqa login
+agentiqa explore --url https://your-site.com
 ```
 
-Output:
+Playwright Chromium is auto-installed with the CLI. `agentiqa login` opens a browser to authenticate; the token persists in `~/.agentiqa/credentials.json`.
+
+Example output:
+
 ```
 Done — 12 actions, 0 issues in 84s
 Verdict: ship
 Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
 ```
 
-## Install
+## CI/CD usage
+
+Once logged in (or with `AGENTIQA_SERVICE_KEY` set), `agentiqa run` executes a saved plan and exits with a non-zero status on failure — drop it into any build step:
+
+```bash
+AGENTIQA_SERVICE_KEY=sk_… agentiqa run --label-ids regression
+```
+
+The Test Plans page in the [Agentiqa app](https://agentiqa.com) has a **CLI** button that generates the exact one-liner for the plans you select. See [`docs/cli-quickstart.md`](docs/cli-quickstart.md) for the walkthrough with screenshots.
+
+## Use in your IDE
+
+The CLI also powers a plugin for AI coding tools — once installed, you ask the assistant to test something in natural language and it runs `agentiqa explore` in the background.
 
 ### Claude Code
 
@@ -43,25 +64,28 @@ Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
 /add-plugin https://github.com/Agentiqa/agentiqa-plugin
 ```
 
-## Setup
+The plugin auto-installs the Agentiqa CLI and prompts for `agentiqa login` on first use. If auto-install fails, install manually with the **Quick start — terminal** snippet above.
 
-The plugin automatically installs the Agentiqa CLI and prompts for authentication on first session start.
+### Examples
 
-If auto-install fails, run manually:
+> "Test the login page for bugs"
 
-```bash
-npm install -g agentiqa
-agentiqa login
-```
+> "QA the checkout flow on http://localhost:3000/checkout"
+
+> "Find bugs in the Settings screen on Android"
+
+### Cursor notes
+
+- Tests run in **background mode** — no shell timeout issues even for long runs (3-10 min).
+- Parallel testing supported — ask Cursor to test multiple pages at once.
+- Results include JSON with issues, severity, confidence, and reproduction steps.
+
+## Setup details
 
 ### For mobile testing
 
 - **Android**: Running emulator (`adb devices` shows it)
 - **iOS**: Running simulator (`xcrun simctl list devices` shows it)
-
-### For web testing
-
-Playwright Chromium is auto-installed with the CLI (`npm install -g agentiqa`). No extra steps needed.
 
 ### For video recording (optional)
 
@@ -72,36 +96,6 @@ brew install ffmpeg
 ```
 
 Without ffmpeg, tests still work — screenshots are saved as fallback.
-
-## Usage
-
-Once installed, both Claude Code and Cursor automatically use the skill when you ask to test your app:
-
-> "Test the login page for bugs"
-
-> "QA the checkout flow on http://localhost:3000/checkout"
-
-> "Find bugs in the Settings screen on Android"
-
-> "Use agentiqa to test https://example.com/pricing"
-
-The skill runs `agentiqa explore` in the background and presents results when done.
-
-### Cursor notes
-
-- Tests run in **background mode** — no shell timeout issues even for long runs (3-10 min)
-- Parallel testing supported — ask Cursor to test multiple pages at once
-- Results include JSON with issues, severity, confidence, and reproduction steps
-
-## Related: run saved plans from a terminal
-
-If you also use the **Agentiqa app** (`web.agentiqa.com` or the
-desktop app) to manage saved test plans, those plans can be triggered
-from a single shell command — useful for CI hooks, scripted reruns,
-or just skipping the UI for a known regression sweep.
-
-See [`docs/cli-quickstart.md`](docs/cli-quickstart.md) for the
-walkthrough with screenshots.
 
 ## Links
 

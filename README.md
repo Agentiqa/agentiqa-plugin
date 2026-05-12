@@ -1,6 +1,6 @@
 # Agentiqa CLI Plugin
 
-AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps.
+AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps + media artifacts (screenshots, video when ffmpeg is available).
 
 Use it from a coding agent (Claude Code, Cursor), from a terminal, or as a CI step.
 

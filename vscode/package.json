@@ -4,6 +4,7 @@
   "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user.",
   "version": "0.2.0",
   "publisher": "agentiqa",
+  "icon": "assets/logo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Agentiqa/agentiqa-plugin"

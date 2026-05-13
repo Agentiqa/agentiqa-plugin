@@ -1,0 +1,64 @@
+{
+  "name": "agentiqa",
+  "displayName": "Agentiqa",
+  "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user.",
+  "version": "0.2.0",
+  "publisher": "agentiqa",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Agentiqa/agentiqa-plugin"
+  },
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Testing",
+    "AI"
+  ],
+  "keywords": [
+    "testing",
+    "qa",
+    "bugs",
+    "visual testing",
+    "mobile testing",
+    "ai"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "agentiqa",
+        "label": "Agentiqa Testing Agent"
+      }
+    ],
+    "commands": [
+      {
+        "command": "agentiqa.setup",
+        "title": "Agentiqa: Setup (Install CLI, Login, Chromium)"
+      },
+      {
+        "command": "agentiqa.testUrl",
+        "title": "Agentiqa: Test URL"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "package": "npm run build && npx @vscode/vsce package --allow-missing-repository",
+    "publish": "npm run build && npx @vscode/vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.99.0",
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.7.0",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

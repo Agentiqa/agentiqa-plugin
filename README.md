@@ -1,8 +1,8 @@
-# Agentiqa Plugin
+# Agentiqa CLI Plugin
 
-AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps.
+AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps + media artifacts (screenshots, video when ffmpeg is available).
 
-Works with **Claude Code** and **Cursor**.
+Use it from a coding agent (Claude Code, Cursor), from a terminal, or as a CI step.
 
 ## What it finds
 
@@ -14,19 +14,6 @@ Works with **Claude Code** and **Cursor**.
 Each issue includes severity, category, confidence score, and step-by-step reproduction instructions.
 
 [Learn more](https://agentiqa.com/en)
-
-## Example (Cursor)
-
-```
-use agentiqa to test https://s.agentiqa.com/en/pricing
-```
-
-Output:
-```
-Done — 12 actions, 0 issues in 84s
-Verdict: ship
-Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
-```
 
 ## Install
 
@@ -43,25 +30,49 @@ Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
 /add-plugin https://github.com/Agentiqa/agentiqa-plugin
 ```
 
-## Setup
-
-The plugin automatically installs the Agentiqa CLI and prompts for authentication on first session start.
-
-If auto-install fails, run manually:
+### Other / Terminal
 
 ```bash
 npm install -g agentiqa
 agentiqa login
 ```
 
+## Example
+
+### Coding Agents
+
+Once the plugin is installed, ask the assistant in natural language:
+
+> "Test the login page for bugs"
+
+> "QA the checkout flow on http://localhost:3000/checkout"
+
+> "Find bugs in the Settings screen on Android"
+
+The skill runs `agentiqa explore` in the background and presents results when done:
+
+```
+Done — 12 actions, 0 issues in 84s
+Verdict: ship
+Artifacts: /tmp/agentiqa-abc123 (12 screenshots)
+```
+
+### CI
+
+Run saved test plans non-interactively with a service key — drop into any build step:
+
+```bash
+AGENTIQA_SERVICE_KEY=sk_… agentiqa run --label-ids regression
+```
+
+The Test Plans page in the [Agentiqa app](https://agentiqa.com) has a **CLI** button that builds the exact one-liner for the plans you select. See [`docs/ci-quickstart.md`](docs/ci-quickstart.md) for the full walkthrough.
+
+## Setup details
+
 ### For mobile testing
 
 - **Android**: Running emulator (`adb devices` shows it)
 - **iOS**: Running simulator (`xcrun simctl list devices` shows it)
-
-### For web testing
-
-Playwright Chromium is auto-installed with the CLI (`npm install -g agentiqa`). No extra steps needed.
 
 ### For video recording (optional)
 
@@ -72,26 +83,6 @@ brew install ffmpeg
 ```
 
 Without ffmpeg, tests still work — screenshots are saved as fallback.
-
-## Usage
-
-Once installed, both Claude Code and Cursor automatically use the skill when you ask to test your app:
-
-> "Test the login page for bugs"
-
-> "QA the checkout flow on http://localhost:3000/checkout"
-
-> "Find bugs in the Settings screen on Android"
-
-> "Use agentiqa to test https://example.com/pricing"
-
-The skill runs `agentiqa explore` in the background and presents results when done.
-
-### Cursor notes
-
-- Tests run in **background mode** — no shell timeout issues even for long runs (3-10 min)
-- Parallel testing supported — ask Cursor to test multiple pages at once
-- Results include JSON with issues, severity, confidence, and reproduction steps
 
 ## Links
 

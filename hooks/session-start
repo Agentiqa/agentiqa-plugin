@@ -75,8 +75,13 @@ escape_for_json() {
 escaped=$(escape_for_json "$msg")
 
 if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  # Claude Code format
   printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$escaped"
+elif [ -n "${CODEX_PLUGIN_ROOT:-}" ] || [ -n "${PLUGIN_ROOT:-}" ]; then
+  # Codex format
+  printf '{\n  "additionalContext": "%s"\n}\n' "$escaped"
 else
+  # Fallback (Cursor, etc.)
   printf '{\n  "additional_context": "%s"\n}\n' "$escaped"
 fi
 

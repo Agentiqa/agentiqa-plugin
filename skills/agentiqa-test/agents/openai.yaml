@@ -1,0 +1,6 @@
+interface:
+  display_name: "Agentiqa Test"
+  short_description: "Run agentiqa explore CLI to find bugs in web/mobile apps"
+  default_prompt: "use agentiqa to test my app for bugs"
+policy:
+  allow_implicit_invocation: true

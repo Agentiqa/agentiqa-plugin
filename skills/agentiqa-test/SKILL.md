@@ -2,13 +2,23 @@
 name: agentiqa-test
 description: >
   Test web and mobile apps using Agentiqa. Use when the user asks to test,
-  QA, explore, or find bugs in their app. Runs an independent AI testing
-  agent that navigates the app visually like a real user.
+  QA, explore, or find bugs in their app. IMPORTANT: Do NOT explore the
+  codebase or read source files — just run the global `agentiqa` CLI directly.
+  Steps: (1) check CLI installed with `command -v agentiqa`, (2) install
+  Chromium with `npx playwright install chromium`, (3) run
+  `agentiqa explore "<prompt>" --url <url> --auto-approve --json` in
+  background. NEVER use local repo builds like `node apps/cli/dist/cli.js`.
 ---
 
 # Agentiqa Test Skill
 
 You have access to `agentiqa explore` — a CLI that launches an independent AI testing agent to find bugs in web and mobile apps.
+
+## CRITICAL RULES — READ BEFORE DOING ANYTHING
+
+1. **NEVER explore the codebase** — do NOT run `ls`, `find`, `rg`, `cat`, or read any source files. The agentiqa CLI is an external tool, not part of this repo. Go straight to Step 0.
+2. **ALWAYS use the global `agentiqa` CLI** — run `agentiqa explore ...` directly. NEVER run `node apps/cli/dist/cli.js`, `npx agentiqa`, or any local build from the repo. The globally installed CLI has its own bundled Chromium and dependencies.
+3. **Follow the steps below IN ORDER** — do not skip, reorder, or improvise.
 
 ## How It Works
 
@@ -25,10 +35,10 @@ The testing agent:
 
 **Step 0: Ensure CLI is installed and authenticated (MANDATORY — run in foreground)**
 
-Run these checks EVERY TIME before launching explore. Do NOT skip. Do NOT use `npx --yes agentiqa` as a substitute — the CLI must be globally installed.
+Run these checks EVERY TIME before launching explore. Do NOT skip.
 
 ```bash
-# Install CLI if missing
+# Install CLI if missing (MUST be global install)
 command -v agentiqa >/dev/null 2>&1 || npm install -g agentiqa
 
 # Check auth — if not logged in, run login (opens browser)
@@ -49,6 +59,8 @@ npx playwright install chromium
 ```
 
 YOU MUST RUN THIS AND WAIT FOR IT TO COMPLETE BEFORE STEP 2. If you skip this, the explore command wastes 30+ seconds installing Chromium mid-run. On subsequent tests in the same session you can skip this step.
+
+If the install times out or fails due to network restrictions, you may need to approve network access and retry.
 
 **Step 2: Launch explore in BACKGROUND (NEVER foreground — it takes 3-10 minutes and will time out)**
 

@@ -46,16 +46,27 @@ async function ensureSetup(channel: vscode.OutputChannel): Promise<boolean> {
 
   // 3. Install Chromium headless shell using CLI's bundled Playwright version
   const agentiqaPath = (await runCmd('which agentiqa')).stdout.trim()
-  const agentiqaDir = agentiqaPath ? agentiqaPath.replace(/\/bin\/agentiqa$/, '/lib/node_modules/agentiqa') : ''
+  // Resolve symlink: /opt/homebrew/bin/agentiqa -> ../lib/node_modules/agentiqa/dist/cli.js
+  const realPath = (await runCmd(`readlink -f "${agentiqaPath}" 2>/dev/null || readlink "${agentiqaPath}" 2>/dev/null || echo "${agentiqaPath}"`)).stdout.trim()
+  // Walk up from dist/cli.js to package root
+  const agentiqaDir = realPath.includes('/dist/cli.js')
+    ? realPath.replace(/\/dist\/cli\.js$/, '')
+    : agentiqaPath.replace(/\/bin\/agentiqa$/, '/lib/node_modules/agentiqa')
 
   channel.appendLine('[agentiqa] Installing Chromium browser...')
-  // Use CLI's own playwright to install correct version
-  const pwInstall = agentiqaDir
-    ? await runCmd(`cd "${agentiqaDir}" && npx playwright install chromium-headless-shell`)
-    : await runCmd('npx playwright install chromium-headless-shell')
+  // Use CLI's own playwright binary to install the exact version it needs
+  const pwBin = `${agentiqaDir}/node_modules/.bin/playwright`
+  const pwExists = (await runCmd(`test -f "${pwBin}" && echo ok`)).stdout.trim() === 'ok'
+  const installCmd = pwExists
+    ? `"${pwBin}" install chromium-headless-shell`
+    : `cd "${agentiqaDir}" && npx playwright install chromium-headless-shell`
+  const pwInstall = await runCmd(installCmd)
   if (pwInstall.code !== 0) {
-    // Fallback: try regular chromium
-    const fallback = await runCmd('npx playwright install chromium')
+    // Fallback: try regular chromium from CLI's playwright
+    const fallbackCmd = pwExists
+      ? `"${pwBin}" install chromium`
+      : 'npx playwright install chromium'
+    const fallback = await runCmd(fallbackCmd)
     if (fallback.code !== 0) {
       channel.appendLine('[agentiqa] Chromium install failed — will install on first run')
     } else {
@@ -129,6 +140,25 @@ export function activate(context: vscode.ExtensionContext) {
         placeHolder: 'https://example.com',
       })
       if (!url) return
+
+      // Quick pre-flight: ensure CLI is installed and authenticated
+      const cliOk = await runCmd('command -v agentiqa')
+      if (cliOk.code !== 0) {
+        channel.appendLine('[agentiqa] CLI not found — installing...')
+        const install = await runCmd('npm install -g agentiqa')
+        if (install.code !== 0) {
+          vscode.window.showErrorMessage('Agentiqa: Failed to install CLI. Run: npm install -g agentiqa')
+          return
+        }
+        channel.appendLine('[agentiqa] CLI installed')
+      }
+
+      const authOk = await runCmd('agentiqa whoami')
+      if (authOk.code !== 0) {
+        channel.appendLine('[agentiqa] Not logged in — opening browser...')
+        vscode.window.showInformationMessage('Agentiqa: Please log in. A browser window will open.')
+        await runCmd('agentiqa login')
+      }
 
       const terminal = vscode.window.createTerminal('Agentiqa')
       terminal.show()

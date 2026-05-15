@@ -1,0 +1,20 @@
+{
+  "name": "agentiqa-marketplace",
+  "interface": {
+    "displayName": "Agentiqa"
+  },
+  "plugins": [
+    {
+      "name": "agentiqa",
+      "source": {
+        "source": "local",
+        "path": "./agentiqa"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_FIRST_USE"
+      },
+      "category": "Testing"
+    }
+  ]
+}

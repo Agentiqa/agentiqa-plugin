@@ -30,6 +30,19 @@ Each issue includes severity, category, confidence score, and step-by-step repro
 /add-plugin https://github.com/Agentiqa/agentiqa-plugin
 ```
 
+### Codex CLI
+
+```bash
+codex plugin marketplace add Agentiqa/agentiqa-plugin
+```
+
+The plugin installs automatically. Then start a session and ask in natural language:
+
+```
+codex
+› use agentiqa to test https://your-app.com
+```
+
 ### Other / Terminal
 
 ```bash

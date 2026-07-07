@@ -1,6 +1,6 @@
 interface:
   display_name: "Agentiqa Test"
-  short_description: "Run agentiqa explore CLI to find bugs in web/mobile apps"
-  default_prompt: "use agentiqa to test my app for bugs"
+  short_description: "Agentiqa CLI for web apps: `run` a saved/local test plan for fixed regression checks, or `explore` for open-ended bug hunting"
+  default_prompt: "use agentiqa to test my app — run my test plan or explore for bugs"
 policy:
   allow_implicit_invocation: true

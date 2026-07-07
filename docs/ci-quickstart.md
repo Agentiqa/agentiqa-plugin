@@ -33,8 +33,42 @@ AGENTIQA_SERVICE_KEY=sk_<key> npx agentiqa@latest run [--label-ids id1,id2,...] 
 ```
 
 - `--label-ids` is included only when a label filter is active on the
-  page. With no filter, the command runs **all** plans in the project.
+  page. See the selector warning below.
 - `--mode parallel` is included only when the Parallel toggle is on.
+
+### Selecting which plans run (service-key mode)
+
+- `--label-ids id1,id2,...` — run every plan tagged with any of
+  those labels.
+- `--plan-id <id>` — run a single saved plan by its ID.
+- ⚠️ **With a service key and no selector (`--label-ids` /
+  `--plan-id`), `run` executes _every_ plan in the project.** The
+  **CLI** button omits the selector only when no label filter is
+  active — add one yourself if you don't intend to run all of them.
+
+### Other options
+
+- `--engine <url>` — drive a hosted engine instead of the local
+  in-process one. When set, Playwright/Chromium and ffmpeg are **not**
+  installed locally; the remote engine runs the browser.
+- `--mode sequential|parallel` — execution order (default:
+  `sequential`).
+
+## Running a local plan file instead
+
+For a plan authored in-repo (e.g. by a coding agent) rather than saved
+in the app, skip the service key and point `run` at a JSON file. This
+mode requires `--url` and authenticates with `agentiqa login` (an
+interactive session) instead of `AGENTIQA_SERVICE_KEY`:
+
+```
+agentiqa run --url https://staging.example.com --plan ./plan.json
+```
+
+The plan file is a JSON object with `id`, `projectId`, `title`,
+`createdAt`, `updatedAt`, and a `steps` array of `setup` / `action` /
+`verify` steps. See the `agentiqa-test` skill for a minimal valid
+example.
 
 ## What gets executed
 

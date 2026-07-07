@@ -20,7 +20,7 @@ Each issue includes severity, category, confidence score, and step-by-step repro
 ### Claude Code
 
 ```
-/plugin marketplace add agentiqa/agentiqa-plugin
+/plugin marketplace add Agentiqa/agentiqa-plugin
 /plugin install agentiqa@agentiqa
 ```
 
@@ -47,15 +47,21 @@ agentiqa login
 
 ### Coding Agents
 
-Once the plugin is installed, ask the assistant in natural language:
+Once the plugin is installed, ask the assistant in natural language — it picks the right command for the request.
+
+Open-ended discovery runs `agentiqa explore`:
 
 > "Test the login page for bugs"
 
 > "QA the checkout flow on http://localhost:3000/checkout"
 
-> "Find bugs in the Settings screen on Android"
+Fixed, enumerated, or repeatable checks (and regression re-checks) run `agentiqa run` against a saved or local test plan:
 
-The skill runs `agentiqa explore` in the background and presents results when done:
+> "Re-run my checkout regression plan against http://localhost:3000"
+
+> "Verify these steps: log in, add the Pro plan to the cart, check the total is $19"
+
+The skill runs the command in the background and presents results when done:
 
 ```
 Done — 12 actions, 0 issues in 84s

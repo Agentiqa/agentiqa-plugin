@@ -18,8 +18,6 @@ Agent-led discovery of a web URL; reports findings. Key flags:
 - `--credential <name:secret>` (repeatable) — a login credential for the agent.
 - `--auto-approve` — auto-approve checkpoints (required non-interactively).
 - `--json` / `--format <text|json>` — machine output.
-- `--model <provider:model>` — BYOK (`google`|`anthropic`|`openai`); non-Google is
-  Company-plan only.
 
 ## run
 
@@ -44,13 +42,14 @@ Replays saved plans; deterministic pass/fail. Key flags:
 
 ## Engine modes
 
-- No `--engine`: in-process engine — downloads Chromium, can test `localhost`,
-  needs `GEMINI_API_KEY` for the default Google model (BYOK).
 - `--engine https://engine.agentiqa.com`: hosted cloud engine, managed LLM, no
-  local Chromium; `AGENTIQA_SERVICE_KEY` alone authenticates.
+  local Chromium; `AGENTIQA_SERVICE_KEY` alone authenticates. The standard path
+  for CI and automation.
+- No `--engine`: runs an engine in-process on your machine — downloads Chromium,
+  can test `localhost`. Advanced.
 
 ## Key environment variables
 
 `AGENTIQA_SERVICE_KEY` (CI auth), `AGENTIQA_API_URL` (control-plane override),
-`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` (BYOK), `AG_OUTPUT`
-(`json`), `AG_SHARE`. Full list: the generated CLI reference (link above).
+`AG_OUTPUT` (`json`), `AG_SHARE`. Full list: the generated CLI reference (link
+above).

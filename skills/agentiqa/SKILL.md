@@ -35,10 +35,11 @@ npx -y agentiqa@latest explore "Find bugs on the signup page" --url https://exam
 AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run --engine https://engine.agentiqa.com
 ```
 
-- No `--engine` → the CLI runs an engine **in-process** (downloads Chromium; can
-  test `localhost`; BYOK Gemini via `GEMINI_API_KEY`).
 - `--engine https://engine.agentiqa.com` → **hosted** cloud engine (managed LLM,
-  no local Chromium). `AGENTIQA_SERVICE_KEY` alone authenticates.
+  no local Chromium). `AGENTIQA_SERVICE_KEY` alone authenticates. This is the
+  standard path for CI and automation.
+- No `--engine` → the CLI runs an engine **in-process** on your machine
+  (downloads Chromium; can test `localhost`). Advanced.
 - Select plans: `--plan-id tplan_…`, or `--label-ids a,b` (csv), else all plans in
   the key's project. `--mode parallel` to run concurrently.
 
@@ -66,7 +67,7 @@ JSON capture, the artifact upload, and the exit-code gating:
     # fail-on: plan-failure (default) | never | any
 ```
 
-Setup, cloud-vs-self-hosted, and the full input/output list: `references/github-action.md`.
+Setup, plan selection, gating, and the full input/output list: `references/github-action.md`.
 
 ## Quickstarts for all four surfaces
 

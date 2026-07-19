@@ -14,21 +14,9 @@ reference at `https://docs.agentiqa.com/docs/github-action/reference`.
 ```
 
 Runs all plans in the key's project on Agentiqa Cloud; fails the job on a plan
-failure or config error.
-
-## Cloud vs self-hosted (the `runtime` input)
-
-- `cloud` (default) — browser on Agentiqa's cloud, managed LLM. Only `service-key`.
-- `self-hosted` — engine in-process on the runner with your own key; requires
-  `gemini-api-key`. Chromium downloaded on first use.
-
-```yaml
-- uses: agentiqa/qa-action@v1
-  with:
-    service-key: ${{ secrets.AGENTIQA_SERVICE_KEY }}
-    runtime: self-hosted
-    gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
-```
+failure or config error. The browser runs on Agentiqa's infrastructure with the
+managed LLM, so the runner needs no Chromium and no LLM key — just the
+`service-key`.
 
 ## Selecting plans and gating
 

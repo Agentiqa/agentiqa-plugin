@@ -22,29 +22,81 @@ explore` for ad-hoc QA) or the **GitHub Action**. This is what you'll use most.
   (`web.agentiqa.com`, cloud execution) or the **desktop app** (built-in headed
   browser, can test `localhost`). You cannot drive those from a shell.
 
-## CLI — the two commands
+## CLI — the commands
 
 Needs Node.js 18+. Use `npx -y` (the `-y` matters in CI: bare `npx` prompts and
 hangs a non-interactive shell).
 
 ```bash
-# Explore: agent-led discovery of a URL, reports findings
+# Explore: agent-led discovery of a URL; reports findings and a draft plan
 npx -y agentiqa@latest explore "Find bugs on the signup page" --url https://example.com
 
 # Run: replay saved test plans, deterministic pass/fail (this is the CI command)
-AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run --engine https://engine.agentiqa.com
+AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run
 ```
 
-- `--engine https://engine.agentiqa.com` → **hosted** cloud engine (managed LLM,
-  no local Chromium). `AGENTIQA_SERVICE_KEY` alone authenticates. This is the
-  standard path for CI and automation.
-- No `--engine` → the CLI runs an engine **in-process** on your machine
-  (downloads Chromium; can test `localhost`). Advanced.
-- Select plans: `--plan-id tplan_…`, or `--label-ids a,b` (csv), else all plans in
-  the key's project. `--mode parallel` to run concurrently.
+The verbs split into two jobs:
+
+- **Explore & author** — `explore` (discovery + a draft plan) and the plan verbs
+  `plan list` / `plan get <id>` / `plan save --file <path>`, plus `runs get <id>` to
+  read a plan's verdict history. This is the interactive authoring loop below.
+- **Run & gate** — `run` replays saved plans for deterministic pass/fail. Wire this
+  into CI.
+
+Engine for `run`: with `AGENTIQA_SERVICE_KEY` set, `run` **defaults to the hosted
+cloud engine** for your API host (`agentiqa.com` → `engine.agentiqa.com`), so no
+`--engine` is needed and the run persists to the account. Pass `--embedded` to force
+an in-process engine on your machine (downloads Chromium, reaches `localhost`,
+offline — but does not persist to the account); `--engine <url>` overrides both.
+
+Select plans: `--plan-id tp_…`, or `--label-ids a,b` (csv), else all plans in the
+key's project. `--mode parallel` to run concurrently.
 
 Full flag/env/exit-code detail: `references/cli.md`. Auth (service keys):
 `references/service-keys.md`.
+
+## Authoring a test plan (the curation loop)
+
+Agentiqa's model is **the agent proposes, the user curates**. When the user asks you
+to build or change a saved plan, you are the coordinator — run this loop and keep the
+user in control. A service key is scoped to ONE project; all plan reads/writes and
+runs land in that project.
+
+1. **Explore.** Run `npx -y agentiqa@latest explore "<goal>" --engine
+https://engine.agentiqa.com --auto-approve --json` (add `--url` when given) as a
+   long-lived background command. Keep stdout as one JSON document (no `2>&1`). Take
+   the success envelope's `testPlan` array as the engine-authored draft steps. If it
+   is absent or empty, tell the user and refine — never invent steps.
+2. **Review.** Present the draft in chat: a clear, non-empty title, then each
+   numbered step, its type, and its criteria. Do not save yet.
+3. **Approve.** Wait for the user's explicit approval of the exact plan shown. The
+   original request, silence, prior approval, and `--auto-approve` are NOT save
+   approval (`--auto-approve` only clears exploration's runtime checkpoints).
+4. **Save.** Serialize the approved plan (non-empty `title`, complete `steps`) and
+   pipe it in: `printf '%s\n' "$PLAN_JSON" | npx -y agentiqa@latest plan save --file - --json`.
+   Omit `id` to create (the CLI mints a `tp_…`); include it to edit in place. Report
+   the saved `plan.id` and every `lintWarnings` entry — never suppress a warning.
+5. **Run.** `npx -y agentiqa@latest run --plan-id "<id>" --json` (hosted by default
+   with a service key). Surface each plan's outcome, summary, and `runUrl` when
+   present. Add `--share` only if the user asks for a public link.
+6. **Read & revise.** `npx -y agentiqa@latest runs get "<id>" --json` reads the
+   verdict history and discovered issues. To change a plan, start from
+   `npx -y agentiqa@latest plan get "<id>" --json`, edit the envelope's `plan` (keep
+   its `id` and a complete `steps` array), present it, and get explicit approval
+   again before re-saving.
+
+**Never hand-author criteria.** The engine owns each criterion's `expectedValue`,
+`matchType`, and `grounding`. You curate title, labels, step text, and ordering —
+never those typed fields. When a criterion's _meaning_ must change, re-explore; do
+not rewrite the assertion by hand. On edit, omitted top-level fields are preserved
+from the stored plan; `steps` is always taken from your JSON.
+
+**Plan ids are the shared handle.** A `tp_…` id works identically in the web app and
+from the CLI. Receive a web-authored id and `plan get` it; hand back the id you
+saved. Never make the user copy a whole plan between surfaces.
+
+Exit codes for these verbs: branch on the process exit code, not log text — see
+`references/exit-codes.md` (`run` adds `1` for a real failing verdict).
 
 ## Running in CI — the contract
 

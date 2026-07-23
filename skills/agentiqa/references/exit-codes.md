@@ -15,7 +15,7 @@ The `1` vs `3` split is deliberate: `1` is a genuine test failure to investigate
 
 ```bash
 for attempt in 1 2 3; do
-  npx -y agentiqa@latest run --engine https://engine.agentiqa.com
+  npx -y agentiqa@latest run
   code=$?
   # 0 pass, 1 plan failure (do NOT retry), 2 usage error (do NOT retry)
   [ "$code" -ne 3 ] && exit "$code"

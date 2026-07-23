@@ -1,7 +1,7 @@
 {
   "name": "agentiqa",
   "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "Agentiqa",
     "email": "a@agentiqa.com"

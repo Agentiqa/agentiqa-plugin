@@ -15,7 +15,7 @@ the exact `agentiqa run` command for that project.
 Pass it via the `AGENTIQA_SERVICE_KEY` environment variable — never inline it:
 
 ```bash
-AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run --engine https://engine.agentiqa.com
+AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run
 ```
 
 In CI, store it as a repository secret named `AGENTIQA_SERVICE_KEY`. The service key

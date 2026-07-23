@@ -44,16 +44,26 @@ The verbs split into two jobs:
   into CI.
 
 Engine for `run`: with `AGENTIQA_SERVICE_KEY` set, `run` **defaults to the hosted
-cloud engine** for your API host (`agentiqa.com` → `engine.agentiqa.com`), so no
-`--engine` is needed and the run persists to the account. Pass `--embedded` to force
-an in-process engine on your machine (downloads Chromium, reaches `localhost`,
-offline — but does not persist to the account); `--engine <url>` overrides both.
+cloud engine** derived from your API base (see Environments), so no `--engine` is
+needed and the run persists to the account. Pass `--embedded` to force an in-process
+engine on your machine (downloads Chromium, reaches `localhost`, offline — but does
+not persist to the account); `--engine <url>` overrides both and is only needed when
+you self-host the engine itself.
 
 Select plans: `--plan-id tp_…`, or `--label-ids a,b` (csv), else all plans in the
-key's project. `--mode parallel` to run concurrently.
+key's project. `--mode parallel` to run concurrently. See Labels for how a plan
+acquires the ids that `--label-ids` matches on.
 
 Full flag/env/exit-code detail: `references/cli.md`. Auth (service keys):
 `references/service-keys.md`.
+
+## Environments
+
+The CLI defaults to Agentiqa **production** (`agentiqa.com`) — nothing to configure.
+If your organization uses a non-default or self-hosted Agentiqa environment, set
+`AGENTIQA_API_URL` to that environment's base URL; the hosted engine is derived from
+that base automatically, so you do **not** pass `--engine` unless you are self-hosting
+the engine itself.
 
 ## Authoring a test plan (the curation loop)
 
@@ -62,9 +72,9 @@ to build or change a saved plan, you are the coordinator — run this loop and k
 user in control. A service key is scoped to ONE project; all plan reads/writes and
 runs land in that project.
 
-1. **Explore.** Run `npx -y agentiqa@latest explore "<goal>" --engine
-https://engine.agentiqa.com --auto-approve --json` (add `--url` when given) as a
-   long-lived background command. Keep stdout as one JSON document (no `2>&1`). Take
+1. **Explore.** Run `npx -y agentiqa@latest explore "<goal>" --auto-approve --json`
+   (add `--url` when given) as a long-lived background command. Keep stdout as one
+   JSON document (no `2>&1`). Take
    the success envelope's `testPlan` array as the engine-authored draft steps. If it
    is absent or empty, tell the user and refine — never invent steps.
 2. **Review.** Present the draft in chat: a clear, non-empty title, then each
@@ -97,6 +107,28 @@ saved. Never make the user copy a whole plan between surfaces.
 
 Exit codes for these verbs: branch on the process exit code, not log text — see
 `references/exit-codes.md` (`run` adds `1` for a real failing verdict).
+
+## Labels
+
+Labels group a project's plans so a CI job can select a subset:
+`agentiqa run --label-ids <a,b,c>` runs every plan whose `labels` include ANY of the
+given ids (omit the flag to run all plans in the key's project). Labels are **opaque
+ids** shaped `lbl_…`, not free text — you curate which plan carries which label, the
+same "agent proposes, user curates" model.
+
+- **Discover ids.** `agentiqa labels list --json` returns the project's labels as
+  `{ id, name, color }` (the project is inferred from the service key). Or read a
+  sibling plan's `labels` array from `agentiqa plan get <id> --json`.
+- **Attach.** A label is attached by including its `lbl_…` id in the plan's `labels`
+  array when you `plan save`. On an **edit**, an omitted `labels` field is preserved
+  from the stored plan; on a **create** without `labels`, the plan is stored with
+  none.
+- **A fresh plan is unlabeled.** A newly created plan has NO labels until you attach
+  them — fine for ad-hoc `--plan-id` runs, but it will **never** be picked up by a CI
+  job that selects via `--label-ids`. Attach the right label(s) before wiring it in.
+- **Bad ids fail the attach.** An unknown or typo'd id yields an `UNKNOWN_LABEL_IDS`
+  entry in the `plan save` response's `lintWarnings` — treat it as a **failed
+  attach**, not a soft note: fix the id and re-save.
 
 ## Running in CI — the contract
 

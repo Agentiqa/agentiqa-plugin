@@ -49,7 +49,7 @@ Emitted for usage errors and thrown infra/runtime errors:
 ## Parse example
 
 ```bash
-npx -y agentiqa@latest run --engine https://engine.agentiqa.com --json > result.json
+npx -y agentiqa@latest run --json > result.json
 code=$?
 jq -r '.plans[] | "\(.outcome)\t\(.title)"' result.json || cat result.json
 exit "$code"

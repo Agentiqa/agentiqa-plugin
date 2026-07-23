@@ -9,7 +9,7 @@ Needs Node.js 18+ (Node 20 recommended).
 npx -y agentiqa@latest explore "Find bugs on this page" --url https://example.com
 
 # CI: replay saved plans on the hosted engine (deterministic pass/fail)
-AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run --engine https://engine.agentiqa.com
+AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run
 ```
 
 ## GitHub Action

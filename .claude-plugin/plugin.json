@@ -16,6 +16,5 @@
     "web",
     "ai",
     "automation"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

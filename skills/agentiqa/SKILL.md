@@ -119,6 +119,12 @@ same "agent proposes, user curates" model.
 - **Discover ids.** `agentiqa labels list --json` returns the project's labels as
   `{ id, name, color }` (the project is inferred from the service key). Or read a
   sibling plan's `labels` array from `agentiqa plan get <id> --json`.
+- **Mint one when none fits.** `agentiqa labels create <name> [--color '#rrggbb']`
+  prints the new `lbl_…` id (`--json` → `label`); `labels update <id>` renames or
+  recolors, `labels delete <id>` removes it and detaches it from every plan. Prefer
+  an EXISTING label — creating near-duplicates ("smoke" vs "smoke-tests") splits the
+  CI subsets a human curated. Names are unique per project (case-insensitive): a
+  duplicate is a usage error (exit 2), not a silent no-op.
 - **Attach.** A label is attached by including its `lbl_…` id in the plan's `labels`
   array when you `plan save`. On an **edit**, an omitted `labels` field is preserved
   from the stored plan; on a **create** without `labels`, the plan is stored with

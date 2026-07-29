@@ -4,12 +4,84 @@ set -euo pipefail
 
 messages=()
 
-# 1. Auto-install agentiqa CLI if missing
+# ── Agentiqa CLI version awareness ───────────────────────────────────────────
+#
+# The skill's examples call the GLOBAL binary (`agentiqa …`), so "installed" is
+# not the same as "current": this hook used to install only when the binary was
+# missing and never looked again, which let a months-old CLI sit on PATH while
+# the skill documented verbs it does not have. That fails as
+# `unknown … subcommand` / exit 2 — e.g. `agentiqa labels create`, added in
+# 1.1.44 — and reads like a broken tool rather than a stale install.
+#
+# The check must not tax session start (this hook is synchronous), so the
+# registry lookup NEVER runs in the blocking path: the resolved version is
+# cached for 24h and refreshed by a detached child whose result is used by the
+# NEXT session. Steady-state cost is one local `--version` call.
+#
+# It reports, it does not self-upgrade: `npm install -g` on a live session can
+# swap the binary out from under a command the agent is already running.
+
+AGENTIQA_CACHE_DIR="${HOME}/.agentiqa"
+AGENTIQA_LATEST_CACHE="${AGENTIQA_CACHE_DIR}/plugin-latest-version"
+AGENTIQA_LATEST_TTL=86400 # 24h — mirrors the CLI's own update-check window
+
+# True when $1 is strictly older than $2, comparing the release triple only (a
+# `1.1.45-staging.abc` build counts as 1.1.45). Non-numeric input → not older,
+# so a version string we cannot parse never produces a bogus nag.
+version_is_older() {
+  local a="${1%%-*}" b="${2%%-*}"
+  local a1 a2 a3 b1 b2 b3
+  IFS=. read -r a1 a2 a3 <<<"$a"
+  IFS=. read -r b1 b2 b3 <<<"$b"
+  for part in "${a1:-x}" "${a2:-0}" "${a3:-0}" "${b1:-x}" "${b2:-0}" "${b3:-0}"; do
+    case "$part" in '' | *[!0-9]*) return 1 ;; esac
+  done
+  a2=${a2:-0} a3=${a3:-0} b2=${b2:-0} b3=${b3:-0}
+  # Explicit returns, never a bare failing test: this runs under `set -e`.
+  if [ "$a1" -ne "$b1" ]; then
+    if [ "$a1" -lt "$b1" ]; then return 0; else return 1; fi
+  fi
+  if [ "$a2" -ne "$b2" ]; then
+    if [ "$a2" -lt "$b2" ]; then return 0; else return 1; fi
+  fi
+  if [ "$a3" -lt "$b3" ]; then return 0; else return 1; fi
+}
+
+# Resolve `latest` in a detached child. Every fd is closed: a background job that
+# inherits this hook's stdout holds the pipe open and stalls session start.
+refresh_latest_cache_detached() {
+  mkdir -p "$AGENTIQA_CACHE_DIR" 2>/dev/null || return 0
+  (
+    v=$(npm view agentiqa version 2>/dev/null) || exit 0
+    case "$v" in '' | *[!0-9.a-zA-Z-]*) exit 0 ;; esac
+    printf '%s %s\n' "$v" "$(date +%s)" >"${AGENTIQA_LATEST_CACHE}.tmp" 2>/dev/null &&
+      mv -f "${AGENTIQA_LATEST_CACHE}.tmp" "$AGENTIQA_LATEST_CACHE" 2>/dev/null
+  ) >/dev/null 2>&1 </dev/null &
+}
+
+# 1. Install the agentiqa CLI when missing; flag it when outdated.
 if ! command -v agentiqa &>/dev/null; then
-  if npm install -g agentiqa &>/dev/null; then
+  if npm install -g agentiqa@latest &>/dev/null; then
     messages+=("Agentiqa CLI installed successfully.")
   else
     messages+=("⚠️ Could not auto-install agentiqa CLI. Run: npm install -g agentiqa (may need sudo)")
+  fi
+  refresh_latest_cache_detached # seed the cache so the next session can compare
+else
+  installed=$(agentiqa --version 2>/dev/null | head -1 | tr -d '[:space:]') || installed=""
+  cached_version="" cached_at=0
+  if [ -r "$AGENTIQA_LATEST_CACHE" ]; then
+    read -r cached_version cached_at <"$AGENTIQA_LATEST_CACHE" || true
+  fi
+  case "${cached_at:-}" in '' | *[!0-9]*) cached_at=0 ;; esac
+
+  if [ $(($(date +%s) - cached_at)) -ge "$AGENTIQA_LATEST_TTL" ]; then
+    refresh_latest_cache_detached
+  fi
+
+  if [ -n "$installed" ] && [ -n "$cached_version" ] &&
+    version_is_older "$installed" "$cached_version"; then
+    messages+=("Agentiqa CLI ${installed} is behind ${cached_version}. A stale CLI rejects verbs this skill documents with exit 2 (e.g. \`agentiqa labels create\`, added in 1.1.44). Update before running Agentiqa commands: npm install -g agentiqa@latest")
   fi
 fi
 

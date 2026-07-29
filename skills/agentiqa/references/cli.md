@@ -1,7 +1,8 @@
 # Agentiqa CLI reference (essentials)
 
-Commands: `explore`, `run`, `plan` (`list` / `get` / `save`), `runs get`, `login`,
-`logout`, `whoami`. The authoritative, always-current flag list is the generated
+Commands: `explore`, `run`, `plan` (`list` / `get` / `save`), `runs get`, `labels`
+(`list` / `create` / `update` / `delete`), `login`, `logout`, `whoami`. The
+authoritative, always-current flag list is the generated
 reference at `https://docs.agentiqa.com/docs/cli/reference` (or append `.md`).
 
 ## explore
@@ -37,8 +38,10 @@ Replays saved plans; deterministic pass/fail. Key flags:
   reaches `localhost`, offline); embedded runs do NOT persist to the account.
 - `--engine <url>` — pin a specific engine (overrides the default and `--embedded`).
 - `--artifacts-dir <path>`, `--no-artifacts`.
-- `--share` — mint a public, revocable share link per cloud run (adds `shareUrl` to
-  the envelope). Also `AG_SHARE=1`.
+- `--share` (and `AG_SHARE=1`) — DEPRECATED no-op, still accepted. Public share
+  links were retired 2026-07 for org-member team access: every cloud run's deep
+  link is already in the envelope as `runUrl` and printed as
+  `[<plan title>] Run: <url>`, and it opens for members of the run owner's org.
 - `--json` / `AG_OUTPUT=json` — see `json-envelope.md`.
 
 Engine default: with `AGENTIQA_SERVICE_KEY` set, `run` defaults to the hosted cloud
@@ -71,18 +74,30 @@ plan save --file -` round-trips). On edit, top-level fields you omit are preserv
 Never hand-author a criterion's `expectedValue` / `matchType` / `grounding` — those
 are engine-authored. See the authoring loop in `SKILL.md`.
 
-## labels — discover label ids
+## labels — discover and manage label ids
 
 ```
-agentiqa labels list [--json]
+agentiqa labels <list | create <name> | update <id> | delete <id>> [--name <name>] [--color <#rrggbb>] [--json]
 ```
 
-Lists the labels in the service key's project. `--json` → an envelope
-`{ ok, schemaVersion: 1, labels: [{ id, name, color }] }`. Label ids are opaque
-(`lbl_…`): use them with `run --label-ids <a,b,c>` to select which plans a CI run
-executes, and in a plan's `labels` array on `plan save` to attach a plan to a label.
-A newly created plan carries no labels until you attach them, so a label-selected CI
-run skips it until then.
+Operates on the service key's project. Label ids are opaque (`lbl_…`): use them with
+`run --label-ids <a,b,c>` to select which plans a CI run executes, and in a plan's
+`labels` array on `plan save` to attach a plan to a label. A newly created plan
+carries no labels until you attach them, so a label-selected CI run skips it until
+then.
+
+- `labels list` — `--json` → `{ ok, schemaVersion: 1, labels: [{ id, name, color }] }`.
+- `labels create <name>` — mints a `lbl_…` id and prints it (`--json` → `label`). A
+  color is auto-assigned from the palette unless `--color '#rrggbb'` is given. Names
+  are unique per project (case-insensitive): a duplicate exits 2.
+- `labels update <id>` — `--name` and/or `--color`; the flag you omit is preserved.
+  An unknown id exits 2.
+- `labels delete <id>` — deletes the label AND strips its id from every plan that
+  carried it (`--json` → `deleted` + `detachedPlanIds`); the plans are otherwise
+  untouched.
+
+Prefer attaching an EXISTING label over minting a near-duplicate — labels are the
+subsets a human curated for CI.
 
 ## runs — read verdicts
 
@@ -109,5 +124,5 @@ self-hosting the engine itself.
 ## Key environment variables
 
 `AGENTIQA_SERVICE_KEY` (CI auth + hosted-engine access), `AGENTIQA_API_URL`
-(control-plane base URL; see Environments), `AG_OUTPUT` (`json`), `AG_SHARE`. Full
-list: the generated CLI reference (link above).
+(control-plane base URL; see Environments), `AG_OUTPUT` (`json`). `AG_SHARE` is
+accepted but does nothing. Full list: the generated CLI reference (link above).

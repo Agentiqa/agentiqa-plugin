@@ -35,8 +35,11 @@ every document carries `"schemaVersion": 1` at the top level.
 - Each `plans[]` entry has `title`, `outcome`, `durationSec`, `exitCode`, and an
   optional `summary`.
 - When artifacts are captured, an entry may also carry `runUrl`, `videoUrl`,
-  `videoPath`, `artifactDir`, and — with `--share` — a public `shareUrl`. Each is
-  present **only** when available (omitted, never `null`).
+  `videoPath`, and `artifactDir`. Each is present **only** when available
+  (omitted, never `null`).
+- `runUrl` is set for every cloud run and is also printed to stderr as
+  `[<plan title>] Run: <url>`. It opens for members of the run owner's
+  organization (team access) — there are no public, login-free run links.
 
 ## Failure (`ok: false`)
 

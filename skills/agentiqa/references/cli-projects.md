@@ -232,7 +232,16 @@ Codes you will actually branch on: `name_conflict` (use `existing.id`),
 `get`/`update` target is gone), `project_ambiguous`, `owner_only`, `stale_write`,
 `org_sharing_unavailable`, `service_key_cannot_create`, `service_key_pinned`,
 `service_key_project_mismatch`, `auth_required`, `usage_error`,
-`control_plane_unavailable`.
+`control_plane_unavailable`, `archived_listing_unsupported`.
+
+`archived_listing_unsupported` (exit 3) is the one capability answer here: `project
+list --archived` needs the server-side archived listing (`?includeDeleted=1`). A
+control plane without it does not reject the flag — it ignores it and answers with
+LIVE rows only, so the CLI refuses rather than hand you a list that silently omits
+every archived project. It is retryable in the exit-3 sense: it clears when the
+control plane is updated, not on the next attempt. `archived` in a `list` row is
+therefore present only when the server actually answered — the human table prints
+`—`, never `no`, for a row that carries no marker.
 
 ## Hard rules
 

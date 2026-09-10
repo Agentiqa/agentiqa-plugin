@@ -67,7 +67,9 @@ Every project-scoped command (`run`, `plan`, `runs`, `labels`) also takes
 `--project <id|name>` to override the selection for that one invocation.
 
 - `list` — the accessible projects (`--json` → `projects` + `selected`); `--archived`
-  adds soft-deleted ones and an ARCHIVED column.
+  adds soft-deleted ones and an ARCHIVED column. `--archived` needs the server-side
+  archived listing: a control plane without it exits 3 `archived_listing_unsupported`
+  rather than returning a live-only list that looks complete.
 - `use` — remember a project for later commands; validated before it is stored.
   `--clear` forgets it.
 - `current` — which project the next command will use and from which rung

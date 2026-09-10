@@ -40,7 +40,7 @@ jobs:
       - name: bash -n every hook script
         run: |
           set -euo pipefail
-          for f in hooks/session-start; do
+          for f in hooks/session-start evals/run.sh evals/_shim/_guard; do
             bash -n "$f"
             echo "ok: $f"
           done

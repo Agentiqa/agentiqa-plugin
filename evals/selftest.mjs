@@ -9,8 +9,11 @@
  * case it drives the recording stub through a KNOWN-GOOD transcript and one or more
  * KNOWN-BAD ones, then asserts that
  *
- *   - every log-reading grader passes on the good transcript, and
- *   - each bad transcript is caught by at least one grader.
+ *   - every log-reading grader passes on the good transcript,
+ *   - each bad transcript is caught by at least one grader, and
+ *   - an otherwise-perfect transcript that reaches around the stub (`npx -y
+ *     agentiqa@latest …`) is caught too — the hermeticity shims in `_shim/`
+ *     refuse it and leave a marker in the very log the graders read.
  *
  * It needs no plugin-eval access, no model, and no network — so it runs in CI and
  * it runs today, while `plugin eval` itself is early-access-gated.
@@ -21,13 +24,15 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const EVALS = dirname(fileURLToPath(import.meta.url))
 const STUB = join(EVALS, '_stub', 'agentiqa')
+const SHIM = join(EVALS, '_shim')
+const SHIMMED = ['npx', 'npm', 'pnpm', 'yarn', 'bunx', 'corepack', 'curl', 'wget']
 const LOG_NAME = '.agentiqa-stub-log.jsonl'
 const verbose = process.argv.includes('--verbose')
 
@@ -130,11 +135,22 @@ function gradeLog(grader, log) {
 
 // ── replaying a transcript through the stub ─────────────────────────────────
 
-function replay(env, transcript) {
+function replay(env, transcript, { shimAttempt } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'agentiqa-eval-selftest-'))
   try {
     for (const argv of transcript) {
       const res = spawnSync(process.execPath, [STUB, ...argv], {
+        cwd: dir,
+        env: { ...process.env, ...env },
+        encoding: 'utf8',
+      })
+      if (res.error) throw res.error
+    }
+    // The escape hatch the harness exists to close: a package runner reaching for
+    // the published CLI. It appends its refusal to the same log.
+    if (shimAttempt) {
+      const [tool, ...args] = shimAttempt
+      const res = spawnSync(join(SHIM, tool), args, {
         cwd: dir,
         env: { ...process.env, ...env },
         encoding: 'utf8',
@@ -146,6 +162,84 @@ function replay(env, transcript) {
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+}
+
+// ── the hermeticity shims ───────────────────────────────────────────────────
+//
+// `_shim/*` is what stops the agent doing what it actually did once: bypassing
+// the stub with `npx -y agentiqa@latest`, reaching the operator's real account,
+// listing 16 live projects and rewriting ~/.agentiqa/config.json. Two properties
+// have to hold or the shim is either useless or in the way:
+//
+//   refuses  — anything mentioning "agentiqa", exit 2, marker in the stub log
+//   delegates — everything else, unchanged, to the real binary
+//
+// The second is checked against a fake binary planted on PATH, so this stays
+// offline and does not depend on npx actually being installed.
+
+const NPX_ESCAPE = ['npx', '-y', 'agentiqa@latest', 'project', 'list', '--json']
+
+function checkShims() {
+  let bad = 0
+  const dir = mkdtempSync(join(tmpdir(), 'agentiqa-eval-shim-'))
+  const fakeBin = mkdtempSync(join(tmpdir(), 'agentiqa-eval-fakebin-'))
+  try {
+    for (const tool of SHIMMED) {
+      writeFileSync(join(fakeBin, tool), `#!/bin/sh\necho "FAKE-${tool}-OK $*"\n`, { mode: 0o755 })
+      // PATH deliberately still contains SHIM: the guard has to strip itself out
+      // when it resolves the real binary, or it re-execs forever.
+      const PATH = [SHIM, fakeBin, process.env.PATH].join(':')
+
+      const refused = spawnSync(join(SHIM, tool), NPX_ESCAPE.slice(1), {
+        cwd: dir,
+        env: { ...process.env, PATH },
+        encoding: 'utf8',
+      })
+      if (refused.status !== 2) {
+        console.error(`✗ shim ${tool}: an agentiqa invocation exited ${refused.status}, expected 2`)
+        bad++
+      }
+      if (!/hermetic eval: real CLI forbidden/.test(refused.stderr ?? '')) {
+        console.error(`✗ shim ${tool}: refusal did not say why (stderr: ${JSON.stringify(refused.stderr)})`)
+        bad++
+      }
+
+      const passed = spawnSync(join(SHIM, tool), ['--version'], {
+        cwd: dir,
+        env: { ...process.env, PATH },
+        encoding: 'utf8',
+      })
+      if (passed.status !== 0 || !passed.stdout.includes(`FAKE-${tool}-OK`)) {
+        console.error(
+          `✗ shim ${tool}: an unrelated invocation was not passed through (exit ${passed.status}, stdout ${JSON.stringify(passed.stdout)})`,
+        )
+        bad++
+      } else if (verbose) {
+        console.error(`  ok  shim ${tool} · refuses agentiqa (exit 2) · delegates everything else`)
+      }
+    }
+
+    const logPath = join(dir, LOG_NAME)
+    const log = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
+    for (const tool of SHIMMED) {
+      if (!new RegExp(`"hermeticViolation":"${tool}"`).test(log)) {
+        console.error(`✗ shim ${tool}: refusal left no marker in ${LOG_NAME} — graders cannot see it`)
+        bad++
+      }
+    }
+    // The attempt must be recorded as a flat string. As a JSON argv array, an
+    // escaped `npx … project create --url …` would satisfy the very graders it
+    // was cheating past.
+    if (/"hermeticViolation"[^\n]*"argv"/.test(log)) {
+      console.error(`✗ shim: the attempt is logged as an argv array — positive graders would match it`)
+      bad++
+    }
+    if (verbose) console.error(`  ${SHIMMED.length} shims exercised\n`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+    rmSync(fakeBin, { recursive: true, force: true })
+  }
+  return bad
 }
 
 // ── the transcripts ─────────────────────────────────────────────────────────
@@ -260,7 +354,7 @@ const CASES = [
 
 // ── run ─────────────────────────────────────────────────────────────────────
 
-let failures = 0
+let failures = checkShims()
 
 for (const c of CASES) {
   const dir = join(EVALS, c.dir)
@@ -297,12 +391,26 @@ for (const c of CASES) {
     }
   }
 
+  // Automatic FAIL on a breach: take the transcript that passes everything, add
+  // one reach-around, and the case must stop being green.
+  const escaped = replay(env, c.good, { shimAttempt: NPX_ESCAPE })
+  const escapeCaughtBy = checked.filter((g) => !gradeLog(g, escaped)).map((g) => g.name)
+  if (escapeCaughtBy.length === 0) {
+    console.error(
+      `✗ ${c.dir}: a correct-looking run that escaped the stub via \`npx -y agentiqa@latest\` scores CLEAN`,
+    )
+    failures++
+  } else if (verbose) {
+    console.error(`  ok  ${c.dir} · "escaped the stub via npx" caught by ${escapeCaughtBy.join(', ')}`)
+  }
+
   if (verbose) console.error(`  ${c.dir}: ${checked.length} log graders exercised\n`)
 }
 
 if (failures === 0) {
   console.log(
-    `OK — ${CASES.length} cases: every documented path passes and every failure mode is caught.`,
+    `OK — ${CASES.length} cases: every documented path passes and every failure mode is caught; ` +
+      `${SHIMMED.length} hermeticity shims refuse the real CLI and a breach fails every case.`,
   )
   process.exit(0)
 }

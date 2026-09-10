@@ -57,6 +57,17 @@ graders:
     arm: both
 
   # ── the hard rules ────────────────────────────────────────────────────────
+  # A hermeticity breach is a failed case, not a footnote. `evals/run.sh` shims
+  # npx/npm/pnpm/yarn/bunx/corepack/curl/wget to refuse anything mentioning
+  # "agentiqa" and records the refusal here — because an agent that reaches the
+  # published CLI is being scored against a live account, not the stub.
+  - type: regex
+    name: hermetic-guard-never-tripped
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'hermeticViolation'
+    match: not_contains
+    arm: both
+
   - type: regex
     name: no-invented-flags
     target: { source: file, path: .agentiqa-stub-log.jsonl }

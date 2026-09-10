@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# HERMETICITY SHIM for the eval suite. Reached as `npx`, `npm`, `pnpm`, `yarn`,
+# `bunx`, `corepack`, `curl` and `wget` (symlinks to this file) because
+# `evals/run.sh` puts this directory first on PATH.
+#
+# Why it exists: during a headless eval run the agent under test bypassed the
+# recording stub entirely by typing `npx -y agentiqa@latest project list --json`.
+# npx downloaded the published CLI, which read the operator's real
+# `~/.agentiqa/credentials.json`, listed 16 live projects, and `project use`
+# rewrote `~/.agentiqa/config.json`. The measurement was void and a real account
+# was touched. A skill can be told not to do that; a harness has to make it
+# impossible.
+#
+# The rule is one line: **any invocation that mentions `agentiqa` is refused**
+# (exit 2), everything else `exec`s the real binary unchanged. A refusal is also
+# appended to the run's stub log as
+#
+#   {"ts":…,"hermeticViolation":"npx","attempt":"npx -y agentiqa@latest …","exitCode":2}
+#
+# so it is visible to the same log-reading graders that score the run — every
+# case.yaml carries a `hermetic-guard-never-tripped` grader that fails on the
+# `hermeticViolation` key. Note the attempt is recorded as a SPACE-separated
+# string, never as a JSON argv array: an array would let an escaped
+# `npx … project create --url …` satisfy the positive graders it was trying to
+# cheat.
+#
+# HTTP is covered by the same rule. Any request that could reach the real API
+# names the host (`agentiqa.com`), and `run.sh` points `AGENTIQA_API_URL` at the
+# dead loopback port 9, so an escaped client has nowhere to go either way.
+set -uo pipefail
+
+tool="$(basename -- "$0")"
+shim_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
+
+joined="$*"
+lowered="$(printf '%s' "$joined" | tr '[:upper:]' '[:lower:]')"
+
+case "$lowered" in
+  *agentiqa*)
+    # JSON-escape the attempt: backslash, quote, then drop control characters so
+    # the record stays exactly one line.
+    attempt="$(
+      printf '%s' "$tool${joined:+ $joined}" |
+        LC_ALL=C sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' |
+        LC_ALL=C tr -d '\000-\037'
+    )"
+    log="${EVAL_AGENTIQA_STUB_LOG:-${AGENTIQA_STUB_LOG:-${PWD}/.agentiqa-stub-log.jsonl}}"
+    printf '{"ts":%s000,"hermeticViolation":"%s","attempt":"%s","exitCode":2}\n' \
+      "$(date +%s)" "$tool" "$attempt" >>"$log" 2>/dev/null || true
+    cat >&2 <<MSG
+hermetic eval: real CLI forbidden
+
+  refused: $tool${joined:+ $joined}
+
+This eval runs against the recording stub, not your account. \`$tool\` may not be
+used to fetch or execute anything named "agentiqa". The CLI under test is already
+on PATH as plain \`agentiqa\` — call that. This refusal was recorded in the run's
+stub log and fails the case.
+MSG
+    exit 2
+    ;;
+esac
+
+# Not about agentiqa — hand it to the real binary. Resolve with this shim
+# directory removed from PATH, or we would re-exec ourselves forever.
+clean=""
+IFS=':' read -r -a parts <<<"$PATH"
+for p in "${parts[@]}"; do
+  [ "$p" = "$shim_dir" ] && continue
+  clean="${clean:+$clean:}$p"
+done
+
+real="$(PATH="$clean" command -v -- "$tool" 2>/dev/null || true)"
+if [ -z "$real" ]; then
+  printf '%s: command not found (hermetic eval shim has nothing to delegate to)\n' "$tool" >&2
+  exit 127
+fi
+
+exec "$real" "$@"

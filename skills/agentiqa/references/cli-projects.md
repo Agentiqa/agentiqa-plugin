@@ -10,6 +10,9 @@ run through this whole reference:
 
 - **`--json` always.** Every project verb emits one JSON document on stdout with
   `schemaVersion: 1`; logs go to stderr. Parse the envelope — never scrape the table.
+- **Bare `agentiqa`, never `npx -y agentiqa@latest`.** The plugin installs the binary
+  and version-checks it at session start; `npx` re-resolves the package per call, so
+  it can answer from a different build than the one that was vetted.
 - **The failure envelope carries the recovery.** A name collision ships
   `existing: { id, name }`; an unmatched selector ships `candidates: [{ id, name }]`.
   Recover from the SAME response; do not fire a second `project list` to find out

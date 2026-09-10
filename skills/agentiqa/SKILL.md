@@ -24,15 +24,26 @@ explore` for ad-hoc QA) or the **GitHub Action**. This is what you'll use most.
 
 ## CLI — the commands
 
-Needs Node.js 18+. Use `npx -y` (the `-y` matters in CI: bare `npx` prompts and
-hangs a non-interactive shell).
+Needs Node.js 18+.
+
+**Type `agentiqa`, not `npx agentiqa`.** This plugin installs the CLI globally and
+checks its version at session start, so the binary on your PATH is the one these
+skills document. `npx -y agentiqa@latest` re-resolves the package from the registry
+on every call: it is slower, it can silently run a *different* build than the one the
+version check just vetted, and it bypasses any local install a harness has put on
+PATH. Use it only on a machine where `command -v agentiqa` finds nothing — a CI
+runner that does not load this plugin — and keep the `-y` there (bare `npx` prompts
+and hangs a non-interactive shell).
 
 ```bash
 # Explore: agent-led discovery of a URL; reports findings and a draft plan
-npx -y agentiqa@latest explore "Find bugs on the signup page" --url https://example.com
+agentiqa explore "Find bugs on the signup page" --url https://example.com
 
 # Run: replay saved test plans, deterministic pass/fail (this is the CI command)
-AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run
+AGENTIQA_SERVICE_KEY=sk_... agentiqa run
+
+# Only where the binary is absent (bare CI runner):
+#   npx -y agentiqa@latest run
 ```
 
 The verbs split into three jobs:
@@ -128,7 +139,8 @@ exits 2 `service_key_pinned`, and `project create` exits 2
 **Hard rules.**
 
 1. **Drive the CLI, never the API.** No `curl`/`fetch` against Agentiqa endpoints to
-   create or read a project.
+   create or read a project — and drive it as the `agentiqa` binary on PATH, not as
+   `npx -y agentiqa@latest` (see **CLI — the commands**).
 2. **Never invent a flag.** If it is not in `agentiqa project --help` or
    `references/cli-projects.md`, it does not exist and exits 2.
 3. **Never grep the customer's repo for a `proj_…` id.** One found in a config or CI
@@ -150,7 +162,7 @@ to build or change a saved plan, you are the coordinator — run this loop and k
 user in control. A service key is scoped to ONE project; all plan reads/writes and
 runs land in that project.
 
-1. **Explore.** Run `npx -y agentiqa@latest explore "<goal>" --auto-approve --json`
+1. **Explore.** Run `agentiqa explore "<goal>" --auto-approve --json`
    (add `--url` when given) as a long-lived background command. Keep stdout as one
    JSON document (no `2>&1`). Take
    the success envelope's `testPlan` array as the engine-authored draft steps. If it
@@ -161,15 +173,15 @@ runs land in that project.
    original request, silence, prior approval, and `--auto-approve` are NOT save
    approval (`--auto-approve` only clears exploration's runtime checkpoints).
 4. **Save.** Serialize the approved plan (non-empty `title`, complete `steps`) and
-   pipe it in: `printf '%s\n' "$PLAN_JSON" | npx -y agentiqa@latest plan save --file - --json`.
+   pipe it in: `printf '%s\n' "$PLAN_JSON" | agentiqa plan save --file - --json`.
    Omit `id` to create (the CLI mints a `tp_…`); include it to edit in place. Report
    the saved `plan.id` and every `lintWarnings` entry — never suppress a warning.
-5. **Run.** `npx -y agentiqa@latest run --plan-id "<id>" --json` (hosted by default
+5. **Run.** `agentiqa run --plan-id "<id>" --json` (hosted by default
    with a service key). Surface each plan's outcome, summary, and `runUrl` when
    present. Add `--share` only if the user asks for a public link.
-6. **Read & revise.** `npx -y agentiqa@latest runs get "<id>" --json` reads the
+6. **Read & revise.** `agentiqa runs get "<id>" --json` reads the
    verdict history and discovered issues. To change a plan, start from
-   `npx -y agentiqa@latest plan get "<id>" --json`, edit the envelope's `plan` (keep
+   `agentiqa plan get "<id>" --json`, edit the envelope's `plan` (keep
    its `id` and a complete `steps` array), present it, and get explicit approval
    again before re-saving.
 

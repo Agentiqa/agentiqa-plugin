@@ -1,9 +1,10 @@
 # Agentiqa CLI reference (essentials)
 
-Commands: `explore`, `run`, `plan` (`list` / `get` / `save`), `runs get`, `labels`
-(`list` / `create` / `update` / `delete`), `login`, `logout`, `whoami`. The
-authoritative, always-current flag list is the generated
-reference at `https://docs.agentiqa.com/docs/cli/reference` (or append `.md`).
+Commands: `explore`, `run`, `project` (`list` / `use` / `current` / `get` / `create` /
+`update`), `plan` (`list` / `get` / `save`), `runs get`, `labels` (`list` / `create` /
+`update` / `delete`), `login`, `logout`, `whoami`. The authoritative, always-current
+flag list is the generated reference at
+`https://docs.agentiqa.com/docs/cli/reference` (or append `.md`).
 
 ## explore
 
@@ -49,6 +50,44 @@ engine derived from your API base — no `--engine` needed, and the run persists
 the account. `--embedded` opts out to the local in-process engine; pass `--engine`
 only when self-hosting the engine itself. See **Environments** below for
 `AGENTIQA_API_URL`.
+
+## project — create, switch, inspect
+
+```
+agentiqa project list [--archived] [--json]
+agentiqa project use <id|name> [--json]
+agentiqa project use --clear
+agentiqa project current [--project <id|name>] [--json]
+agentiqa project get <id|name> [--json]
+agentiqa project create --url <url> [--name <name>] [--persist-browser-profile <true|false>] [--org-shared <true|false>] [--if-not-exists] [--json]
+agentiqa project update <id|name> [--name <name>] [--url <url>] [--clear-url] [--persist-browser-profile <true|false>] [--org-shared <true|false>] [--expected-updated-at <iso>] [--json]
+```
+
+Every project-scoped command (`run`, `plan`, `runs`, `labels`) also takes
+`--project <id|name>` to override the selection for that one invocation.
+
+- `list` — the accessible projects (`--json` → `projects` + `selected`); `--archived`
+  adds soft-deleted ones and an ARCHIVED column.
+- `use` — remember a project for later commands; validated before it is stored.
+  `--clear` forgets it.
+- `current` — which project the next command will use and from which rung
+  (`source`), plus `valid` (is the remembered id still reachable? `null` = not
+  checked because the control plane was unreachable).
+- `get` — the project plus `access.isOwner`, `access.sharedVia`, `archived`,
+  `activeRuns`.
+- `create` — `--url` required; `--name` derived from the URL host when omitted; a
+  name collision is exit 2 `name_conflict` carrying `existing: { id, name }`, or a
+  success with `created: false` under `--if-not-exists`.
+- `update` — a PATCH: flags you omit are preserved. `--url` and `--clear-url` are
+  mutually exclusive; at least one field is required; `--expected-updated-at` opts
+  into optimistic concurrency (exit 2 `stale_write` on a mismatch). Owner-only.
+
+Under `AGENTIQA_SERVICE_KEY` the project is pinned by the key: `create` exits 2
+`service_key_cannot_create`, `use` exits 2 `service_key_pinned`, and a `get`/`update`
+aimed elsewhere exits 2 `service_key_project_mismatch`.
+
+Recipes, the full JSON envelope, the source ladder and the error-code table:
+`cli-projects.md`.
 
 ## plan — author and manage saved plans
 
@@ -123,6 +162,8 @@ self-hosting the engine itself.
 
 ## Key environment variables
 
-`AGENTIQA_SERVICE_KEY` (CI auth + hosted-engine access), `AGENTIQA_API_URL`
-(control-plane base URL; see Environments), `AG_OUTPUT` (`json`). `AG_SHARE` is
+`AGENTIQA_SERVICE_KEY` (CI auth + hosted-engine access; pins ONE project),
+`AGENTIQA_API_URL` (control-plane base URL; see Environments),
+`AGENTIQA_PROJECT_ID` (project for the project-scoped commands — below `--project`,
+above the project remembered by `agentiqa project use`), `AG_OUTPUT` (`json`). `AG_SHARE` is
 accepted but does nothing. Full list: the generated CLI reference (link above).

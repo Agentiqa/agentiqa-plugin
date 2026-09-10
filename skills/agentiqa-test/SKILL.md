@@ -67,6 +67,29 @@ fi
 
 YOU MUST RUN BOTH CHECKS AND WAIT FOR THEM TO COMPLETE. If `agentiqa login` opens a browser, wait for the user to complete authentication before proceeding.
 
+**Step 0b: Know which project you are in (before `run`; before `explore` when the account has more than one)**
+
+A project holds the target URL, the saved plans, and the run history. `run` (and `plan` / `runs` / `labels`) operate in exactly one. Ask the CLI which one — never guess, and never grep this repo for a `proj_…` id (CRITICAL RULE #1): an id in a config or CI file may belong to a different account or environment.
+
+```bash
+agentiqa project current --json   # { projectId, name, source, valid, target }
+agentiqa project list --json      # projects[] when current says none / valid:false
+```
+
+- `source` names why that project won: `flag` (`--project`) > `env` (`AGENTIQA_PROJECT_ID`) > `stored` (`agentiqa project use`) > `single-project` > `service-key`. With `AGENTIQA_SERVICE_KEY` set the project is pinned by the key and there is nothing to choose.
+- `valid: false` ⇒ the remembered project is gone; re-select with `agentiqa project use <id>` instead of letting the next command fail with a bare 404.
+- Select for the session with `agentiqa project use <id|name>`, or for a single command with `agentiqa run --project <id|name> …`.
+
+**No project yet, and the user asked to test a URL?** Create one — do not silently test into someone else's project:
+
+```bash
+agentiqa project create --url https://staging.shop.dev --name shop-staging --if-not-exists --json
+```
+
+Read `project.id` from the envelope. `--if-not-exists` makes a re-run safe: an existing project of that name comes back with `"created": false` and exit 0. Without the flag, a collision exits 2 with `error.code: "name_conflict"` and `existing: { id, name }` in the same envelope — take `existing.id` and continue rather than running a second command to look it up. A service key cannot create a project (exit 2 `service_key_cannot_create`); that needs `agentiqa login`.
+
+Full project recipes, the JSON envelope and the error codes: the `agentiqa` skill's `references/cli-projects.md`.
+
 **Step 1: Install Chromium (MANDATORY before first explore — run in foreground, wait for it to finish)**
 
 ```bash
@@ -254,7 +277,8 @@ AGENTIQA_SERVICE_KEY=sk_… agentiqa run --label-ids regression,smoke
 ```
 
 - `--plan-id <id>` runs one saved plan; `--label-ids a,b,c` runs every plan tagged with any of those labels.
-- Get plan IDs and label IDs from the **Test Plans** page in the Agentiqa app — its **CLI** button builds the exact command (see [`../../docs/ci-quickstart.md`](../../docs/ci-quickstart.md)).
+- Get plan IDs and label IDs from the CLI — `agentiqa plan list --json` and `agentiqa labels list --json` in the selected project (add `--project <id|name>` to aim at another one). The **Test Plans** page in the Agentiqa app shows them too, and its **CLI** button builds the exact command (see [`../../docs/ci-quickstart.md`](../../docs/ci-quickstart.md)).
+- Without a service key, the project comes from the ladder in Step 0b — `--project <id|name>` on this command, else `AGENTIQA_PROJECT_ID`, else the project remembered by `agentiqa project use`.
 - ⚠️ **Footgun:** with a service key and **no** selector (`--plan-id` / `--label-ids`), `run` executes **every plan in the project**. Always pass a selector unless you truly mean to run all of them.
 
 ### Reading run results
@@ -267,7 +291,7 @@ If the command fails:
 
 1. **Exit code 0:** Success — all selected plans passed (or explore completed).
 2. **Exit code 1:** Plan failure — plans ran and at least one failed (`run`).
-3. **Exit code 2:** Usage / configuration error — bad flags, not authenticated, or a selector matched no plans.
+3. **Exit code 2:** Usage / configuration error — bad flags, not authenticated, or a selector matched no plans. For `project` verbs (which never exit 1), read `error.code` from the JSON envelope and recover from it: `name_conflict` carries `existing`, an unmatched selector carries `candidates`.
 4. **Exit code 3:** Infra / runtime error — engine unreachable, auth/exchange failure, or quota block. Safe for CI to retry.
 5. **"Gemini API key not found":** Run `agentiqa login` (opens browser for authentication). Do NOT tell the user to do it manually — run it yourself and wait for completion.
 6. **Playwright/Chromium missing:** Run `npx playwright install chromium` yourself — do not ask the user to do it manually.

@@ -1,6 +1,6 @@
 ---
 name: agentiqa
-description: "Use Agentiqa — an AI QA agent that tests web apps in a real browser — from any of its four surfaces: the CLI (agentiqa explore / agentiqa run), the web app, the desktop app, or the GitHub Action. Load this when the user wants to QA/test a web app with Agentiqa, run an Agentiqa test plan locally or in CI, wire Agentiqa into a GitHub Actions workflow, mint a CLI service key, or parse the machine-readable JSON result envelope / exit codes. Triggers on 'agentiqa', 'agentiqa explore', 'agentiqa run', 'test my app with Agentiqa', 'run Agentiqa in CI', 'agentiqa github action', 'agentiqa service key', 'parse the agentiqa result'."
+description: "Use Agentiqa — an AI QA agent that tests web apps in a real browser — from any of its four surfaces: the CLI (agentiqa explore / agentiqa run), the web app, the desktop app, or the GitHub Action. Load this when the user wants to QA/test a web app with Agentiqa, create or switch an Agentiqa project, run an Agentiqa test plan locally or in CI, wire Agentiqa into a GitHub Actions workflow, mint a CLI service key, or parse the machine-readable JSON result envelope / exit codes. Triggers on 'agentiqa', 'agentiqa explore', 'agentiqa run', 'test my app with Agentiqa', 'create an agentiqa project', 'agentiqa project', 'which agentiqa project am I in', 'switch agentiqa project', 'run Agentiqa in CI', 'agentiqa github action', 'agentiqa service key', 'parse the agentiqa result'."
 ---
 
 # Agentiqa — using the AI QA agent
@@ -35,8 +35,11 @@ npx -y agentiqa@latest explore "Find bugs on the signup page" --url https://exam
 AGENTIQA_SERVICE_KEY=sk_... npx -y agentiqa@latest run
 ```
 
-The verbs split into two jobs:
+The verbs split into three jobs:
 
+- **Choose where the work lands** — the `project` verbs (`list` / `use` / `current` /
+  `get` / `create` / `update`). Everything else operates inside exactly one project,
+  so this comes first. See **Projects** below.
 - **Explore & author** — `explore` (discovery + a draft plan) and the plan verbs
   `plan list` / `plan get <id>` / `plan save --file <path>`, plus `runs get <id>` to
   read a plan's verdict history. This is the interactive authoring loop below.
@@ -64,6 +67,81 @@ If your organization uses a non-default or self-hosted Agentiqa environment, set
 `AGENTIQA_API_URL` to that environment's base URL; the hosted engine is derived from
 that base automatically, so you do **not** pass `--engine` unless you are self-hosting
 the engine itself.
+
+## Projects
+
+A **project** holds a target URL, its saved test plans, labels, run history and
+credentials. `run`, `plan`, `runs` and `labels` all operate inside exactly one
+project, so "which project?" is the first question of any Agentiqa task — and the one
+a coding agent most often gets wrong by guessing.
+
+```
+agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name>> [--json]
+```
+
+Always pass `--json`: every verb then emits one document on stdout with
+`schemaVersion: 1` plus `target: { apiBase, env, projectId, name }`, and every failure
+carries a stable `error.code`. Full envelope, flag list and error-code table:
+`references/cli-projects.md`.
+
+**Create the first project.** Read the id back out of the envelope — never invent it:
+
+```bash
+agentiqa project create --url https://staging.shop.dev --name shop-staging --json
+# → { ok, schemaVersion: 1, project: { id: "proj_…", name, defaultUrl, … }, created: true, target }
+```
+
+`--url` is required; `--name` is optional and defaults to the URL's host label
+(`https://app.example.com` → `example`), echoed back in `project.name`.
+
+**Re-running the same request must not mint a twin.** Names are unique per owner
+(case-insensitive) and a collision is a 409, never a silent rename. Two correct
+shapes:
+
+- Declare the intent: add `--if-not-exists`. The existing project comes back with
+  `"created": false` and exit 0.
+- Or recover from the failure you already have: without the flag a collision exits 2
+  with `error.code: "name_conflict"` **and** `existing: { id, name }` in the same
+  envelope. Take `existing.id` and carry on — do NOT fire a `project list` to look up
+  the id the error just handed you.
+
+**Switch.** Four rungs, highest first — `--project <id|name>` (this command only) >
+`AGENTIQA_PROJECT_ID` > `agentiqa project use <id|name>` (remembered) > the account's
+single project. `agentiqa project current --json` answers
+`{ projectId, name, source, valid }` where `source` names the winning rung
+(`flag | env | stored | single-project | service-key | none`), so you never infer it.
+`valid: false` means the remembered project is gone — re-select instead of letting
+the next command fail with a bare 404. `project use --clear` forgets it.
+
+**Inspect / retarget.** `project get <id|name> --json` adds `access.isOwner`,
+`sharedVia`, `archived` and `activeRuns`. `project update <id> --url <new-url> --json`
+is a PATCH — omitted flags are preserved — which is how you point a project at a
+preview deploy. Editing settings is owner-only (exit 2 `owner_only` on a shared
+project).
+
+**Under `AGENTIQA_SERVICE_KEY` the question is already answered.** The key is scoped
+to ONE project: `project current` reports `source: "service-key"`, `project use`
+exits 2 `service_key_pinned`, and `project create` exits 2
+`service_key_cannot_create` while issuing zero requests — creating a project needs
+`agentiqa login`. Say that plainly rather than working around it.
+
+**Hard rules.**
+
+1. **Drive the CLI, never the API.** No `curl`/`fetch` against Agentiqa endpoints to
+   create or read a project.
+2. **Never invent a flag.** If it is not in `agentiqa project --help` or
+   `references/cli-projects.md`, it does not exist and exits 2.
+3. **Never grep the customer's repo for a `proj_…` id.** One found in a config or CI
+   file may belong to another account or environment. `agentiqa project list --json`
+   is the only source of truth for what this account can reach.
+4. **Never create a project because a command failed.** Read `error.code` first — a
+   stale selection is fixed by re-selecting, not by minting a duplicate.
+5. Report the project id, its name and `target.env` when you tell the user what you
+   did.
+
+Project verbs never exit `1` — that code is reserved for a real plan verdict from
+`run`. They use `0` / `2` (usage, denied, conflict — retrying cannot help) / `3`
+(infra — retry).
 
 ## Authoring a test plan (the curation loop)
 

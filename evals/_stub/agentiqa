@@ -1,0 +1,564 @@
+#!/usr/bin/env node
+/**
+ * RECORDING STUB for the `agentiqa` CLI. Used by the eval cases in ../.
+ *
+ * It makes no network calls and touches no account. It does two things:
+ *
+ *  1. **Records.** Every invocation appends one JSON line to `$AGENTIQA_STUB_LOG`
+ *     (`{ ts, argv, exitCode }`), so a grader can assert on the exact argv the
+ *     agent chose — which verb, which flags, in which order — rather than on prose
+ *     the agent wrote about what it did.
+ *  2. **Answers.** Canned `--json` envelopes shaped exactly like the real CLI's
+ *     (`{ ok, schemaVersion: 1, …payload, target }` / `{ ok: false, …, error: { code,
+ *     message }, existing?, candidates? }`) with the real exit codes (0 / 2 / 3),
+ *     so the agent's recovery path is exercised for real.
+ *
+ * Fixture state comes from the environment, so one stub serves every case. The
+ * `EVAL_` prefix is not decoration: `claude plugin eval` only lets a case.yaml set
+ * env keys matching /^EVAL_[A-Z0-9_]*$/, so these are the only names a case can
+ * actually pin. The unprefixed forms are accepted too, for running the stub by hand.
+ *
+ *   EVAL_AGENTIQA_STUB_PROJECTS   JSON array of pre-existing projects
+ *                                 [{ id, name, defaultUrl }] (default: [])
+ *   EVAL_AGENTIQA_STUB_SELECTED   id of the remembered project, if any
+ *   EVAL_AGENTIQA_SERVICE_KEY     when set, behave like a pinned service key
+ *   EVAL_AGENTIQA_STUB_LOG        where to append the argv log
+ *                                 (default: ./.agentiqa-stub-log.jsonl in the CWD,
+ *                                 which under `claude plugin eval` is the run's own
+ *                                 sandbox dir — so runs never share a log)
+ *   EVAL_AGENTIQA_STUB_STATE      where to keep what the run itself changed
+ *                                 (default: <log>.state.json)
+ *
+ * The fixture is the SEED, not the whole world. `create` and `use` write through to
+ * the state file so the next invocation sees them, because an agent that creates a
+ * project and is then told by `use`/`get`/`list` that it does not exist does not
+ * carry on — it stops and reports the contradiction (measured: it is the correct
+ * response, and it made case 01 unpassable). Fixtures stay declarative; only what
+ * the agent did during the run is layered on top.
+ *
+ * Deliberately strict: an unknown subcommand or an undeclared flag exits 2 the way
+ * the real CLI does. An eval that only "passes" because the stub tolerated an
+ * invented flag would certify nothing.
+ */
+
+const fs = require('node:fs')
+const path = require('node:path')
+
+const argv = process.argv.slice(2)
+
+/** EVAL_-prefixed first (the only form a case.yaml can set), then the bare name. */
+function fixture(name, fallback = undefined) {
+  return process.env[`EVAL_${name}`] ?? process.env[name] ?? fallback
+}
+
+const LOG = fixture('AGENTIQA_STUB_LOG', path.join(process.cwd(), '.agentiqa-stub-log.jsonl'))
+const STATE = fixture('AGENTIQA_STUB_STATE', LOG ? `${LOG}.state.json` : null)
+
+/** What THIS run changed, layered over the declarative fixture. */
+function readState() {
+  if (!STATE) return { created: [], patched: {}, selected: undefined }
+  try {
+    const raw = JSON.parse(fs.readFileSync(STATE, 'utf8'))
+    return { created: raw.created ?? [], patched: raw.patched ?? {}, selected: raw.selected }
+  } catch {
+    return { created: [], patched: {}, selected: undefined }
+  }
+}
+
+function writeState(next) {
+  if (!STATE) return
+  try {
+    fs.writeFileSync(STATE, `${JSON.stringify(next)}\n`)
+  } catch {
+    /* state we cannot persist must not change what the agent sees this call */
+  }
+}
+
+const API_BASE = 'https://agentiqa.com'
+const ENV_LABEL = 'production'
+
+let exitCode = 0
+let unknownFlag = null
+
+function record() {
+  if (!LOG) return
+  try {
+    const entry = { ts: Date.now(), argv, exitCode }
+    if (unknownFlag) entry.unknownFlag = unknownFlag
+    fs.appendFileSync(LOG, `${JSON.stringify(entry)}\n`)
+  } catch {
+    /* a log we cannot write must not change what the agent sees */
+  }
+}
+
+function out(obj) {
+  process.stdout.write(`${JSON.stringify(obj)}\n`)
+}
+
+function done(code) {
+  exitCode = code
+  record()
+  process.exit(code)
+}
+
+function ok(payload, target) {
+  out({ ok: true, schemaVersion: 1, ...payload, target })
+  done(0)
+}
+
+function err(code, message, extra = {}, exit = 2) {
+  out({ ok: false, schemaVersion: 1, error: { code, message }, ...extra })
+  done(exit)
+}
+
+function target(projectId = null, name = null) {
+  return { apiBase: API_BASE, env: ENV_LABEL, projectId, name }
+}
+
+// ── fixture state ───────────────────────────────────────────────────────────
+
+function projects() {
+  const state = readState()
+  try {
+    const seed = JSON.parse(fixture('AGENTIQA_STUB_PROJECTS', '[]'))
+    const raw = [...seed, ...state.created].map((p) => ({ ...p, ...(state.patched[p.id] ?? {}) }))
+    return raw.map((p) => ({
+      id: p.id,
+      name: p.name ?? null,
+      defaultUrl: p.defaultUrl ?? null,
+      targetType: 'web',
+      persistBrowserProfile: p.persistBrowserProfile ?? false,
+      orgShared: p.orgShared ?? false,
+      isOwner: p.isOwner ?? true,
+      sharedVia: p.sharedVia ?? null,
+      archived: false,
+    }))
+  } catch {
+    return []
+  }
+}
+
+function selectedId() {
+  const state = readState()
+  if (state.selected !== undefined) return state.selected
+  return fixture('AGENTIQA_STUB_SELECTED', '') || null
+}
+
+function serviceKey() {
+  return fixture('AGENTIQA_SERVICE_KEY', '') || null
+}
+
+/** `deriveProjectName` in the real CLI: the URL's second-level label. */
+function deriveName(url) {
+  try {
+    const host = new URL(url).hostname
+    if (host === 'localhost' || host === '[::1]' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+      return 'localhost'
+    }
+    const parts = host.split('.').filter(Boolean)
+    return parts.length >= 2 ? parts[parts.length - 2] : (parts[0] ?? 'project')
+  } catch {
+    return 'project'
+  }
+}
+
+function stubId(name) {
+  return `proj_stub_${String(name).replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase()}`
+}
+
+function match(selector, list) {
+  if (!selector) return null
+  const byId = list.find((p) => p.id === selector)
+  if (byId) return byId
+  const byName = list.filter((p) => (p.name ?? '').toLowerCase() === selector.toLowerCase())
+  return byName.length === 1 ? byName[0] : null
+}
+
+function publicProject(p) {
+  return {
+    id: p.id,
+    name: p.name,
+    defaultUrl: p.defaultUrl,
+    targetType: p.targetType,
+    persistBrowserProfile: p.persistBrowserProfile,
+    orgShared: p.orgShared,
+  }
+}
+
+// ── argument parsing ────────────────────────────────────────────────────────
+
+/** Flags the real CLI declares. Anything else is an invented flag → exit 2. */
+const KNOWN_FLAGS = {
+  value: new Set([
+    'url',
+    'name',
+    'project',
+    'plan-id',
+    'plan',
+    'label-ids',
+    'limit',
+    'file',
+    'color',
+    'mode',
+    'engine',
+    'artifacts-dir',
+    'expected-updated-at',
+    'persist-browser-profile',
+    'org-shared',
+    'format',
+    'model',
+    'feature',
+    'hint',
+    'known-issue',
+    'credential',
+  ]),
+  boolean: new Set([
+    'json',
+    'clear',
+    'clear-url',
+    'if-not-exists',
+    'archived',
+    'auto-approve',
+    'embedded',
+    'verbose',
+    'dry-run',
+    'no-artifacts',
+    'share',
+    'help',
+    'version',
+  ]),
+}
+
+function parse(args) {
+  const flags = {}
+  const positional = []
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]
+    if (!a.startsWith('--')) {
+      positional.push(a)
+      continue
+    }
+    const eq = a.indexOf('=')
+    const key = (eq >= 0 ? a.slice(2, eq) : a.slice(2)).trim()
+    if (KNOWN_FLAGS.boolean.has(key)) {
+      flags[key] = eq >= 0 ? a.slice(eq + 1) !== 'false' : true
+      continue
+    }
+    if (KNOWN_FLAGS.value.has(key)) {
+      flags[key] = eq >= 0 ? a.slice(eq + 1) : args[++i]
+      continue
+    }
+    // Recorded, not just refused: a grader can then assert on the ABSENCE of an
+    // invented flag without having to enumerate every real one.
+    unknownFlag = `--${key}`
+    err(
+      'usage_error',
+      `unknown flag "--${key}". Run \`agentiqa --help\` — this CLI has no such flag.`,
+    )
+  }
+  return { flags, positional }
+}
+
+const HELP = `Agentiqa CLI (eval stub)
+
+Usage:
+  agentiqa explore "<prompt>" [flags]
+  agentiqa run [--project <id|name>] [flags]
+  agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name>> [--json]
+  agentiqa plan <list | get <id> | save --file <path>> [--json]
+  agentiqa runs get <plan-id> [--limit <n>] [--json]
+  agentiqa labels <list | create <name> | update <id> | delete <id>> [--name <name>] [--color <#rrggbb>] [--json]
+  agentiqa login
+  agentiqa logout
+  agentiqa whoami
+
+Project flags:
+  --url <url>                       Target URL. Required by \`project create\`.
+  --name <name>                     Project name; derived from --url's host when omitted.
+  --if-not-exists                   \`create\`: a name collision returns the existing project.
+  --clear                           \`use\`: forget the remembered project.
+  --clear-url                       \`update\`: store an explicit empty default URL.
+  --persist-browser-profile <bool>  Keep the browser profile between runs.
+  --org-shared <bool>               Share with your organization.
+  --expected-updated-at <iso>       \`update\`: optimistic concurrency.
+  --archived                        \`list\`: include archived projects.
+  --project <id|name>               \`current\`: the per-invocation selector.
+  --json                            JSON envelope on stdout.
+`
+
+// ── verbs ───────────────────────────────────────────────────────────────────
+
+function projectCommand(rest) {
+  const { flags, positional } = parse(rest)
+  const sub = positional[0]
+  const arg = positional[1]
+  const list = projects()
+
+  if (!sub || flags.help) {
+    process.stderr.write(HELP)
+    done(flags.help ? 0 : 2)
+  }
+
+  if (sub === 'list') {
+    const rows = list.map((p) => ({
+      id: p.id,
+      name: p.name,
+      defaultUrl: p.defaultUrl,
+      isOwner: p.isOwner,
+      sharedVia: p.sharedVia,
+      archived: p.archived,
+    }))
+    return ok({ projects: rows, selected: selectedId() }, target())
+  }
+
+  if (sub === 'current') {
+    if (serviceKey()) {
+      return ok(
+        { projectId: 'proj_stub_ci', name: null, source: 'service-key', valid: true },
+        target('proj_stub_ci'),
+      )
+    }
+    const selector = flags.project || fixture('AGENTIQA_PROJECT_ID', '') || selectedId()
+    const source = flags.project
+      ? 'flag'
+      : fixture('AGENTIQA_PROJECT_ID', '')
+        ? 'env'
+        : selectedId()
+          ? 'stored'
+          : list.length === 1
+            ? 'single-project'
+            : 'none'
+    const chosen = match(selector, list) ?? (source === 'single-project' ? list[0] : null)
+    if (!chosen) {
+      return ok({ projectId: null, name: null, source: 'none', valid: null }, target())
+    }
+    return ok(
+      { projectId: chosen.id, name: chosen.name, source, valid: true },
+      target(chosen.id, chosen.name),
+    )
+  }
+
+  if (sub === 'use') {
+    if (serviceKey()) {
+      return err(
+        'service_key_pinned',
+        'AGENTIQA_SERVICE_KEY already pins one project — a stored selection cannot override it.',
+        { target: target() },
+      )
+    }
+    if (flags.clear) {
+      writeState({ ...readState(), selected: null })
+      return ok({ project: null }, target())
+    }
+    const chosen = match(arg, list)
+    if (!chosen) {
+      return err('not_found', `No project matches "${arg}".`, {
+        candidates: list.map((p) => ({ id: p.id, name: p.name })),
+        target: target(),
+      })
+    }
+    writeState({ ...readState(), selected: chosen.id })
+    return ok({ project: publicProject(chosen) }, target(chosen.id, chosen.name))
+  }
+
+  if (sub === 'get') {
+    const chosen = match(arg, list)
+    if (!chosen) {
+      return err('not_found', `No project matches "${arg}".`, {
+        candidates: list.map((p) => ({ id: p.id, name: p.name })),
+        target: target(),
+      })
+    }
+    return ok(
+      {
+        project: publicProject(chosen),
+        access: { isOwner: chosen.isOwner, sharedVia: chosen.sharedVia },
+        archived: chosen.archived,
+        activeRuns: 0,
+      },
+      target(chosen.id, chosen.name),
+    )
+  }
+
+  if (sub === 'create') {
+    if (serviceKey()) {
+      return err(
+        'service_key_cannot_create',
+        'AGENTIQA_SERVICE_KEY cannot create a project. Run `agentiqa login` and retry.',
+        { target: target() },
+      )
+    }
+    const url = flags.url
+    if (!url) {
+      return err(
+        'usage_error',
+        'Usage: agentiqa project create --url <url> [--name <name>] [--if-not-exists] [--json]',
+      )
+    }
+    try {
+      new URL(url)
+    } catch {
+      return err('usage_error', `--url is not a valid URL: "${url}"`)
+    }
+    const name = (flags.name ?? '').trim() || deriveName(url)
+    const clash = list.find((p) => (p.name ?? '').toLowerCase() === name.toLowerCase())
+    if (clash) {
+      if (flags['if-not-exists']) {
+        return ok(
+          { project: publicProject(clash), created: false },
+          target(clash.id, clash.name),
+        )
+      }
+      return err('name_conflict', `A project named "${name}" already exists.`, {
+        existing: { id: clash.id, name: clash.name },
+        target: target(),
+      })
+    }
+    const created = {
+      id: stubId(name),
+      name,
+      defaultUrl: url,
+      targetType: 'web',
+      persistBrowserProfile: flags['persist-browser-profile'] === 'true',
+      orgShared: flags['org-shared'] === 'true',
+    }
+    const state = readState()
+    writeState({ ...state, created: [...state.created, created] })
+    return ok({ project: created, created: true }, target(created.id, created.name))
+  }
+
+  if (sub === 'update') {
+    const chosen = match(arg, list)
+    if (!chosen) {
+      return err('not_found', `No project matches "${arg}".`, {
+        candidates: list.map((p) => ({ id: p.id, name: p.name })),
+        target: target(),
+      })
+    }
+    if (flags.url !== undefined && flags['clear-url']) {
+      return err('usage_error', '--url and --clear-url are mutually exclusive.')
+    }
+    const updated = { ...publicProject(chosen) }
+    if (flags.url !== undefined) updated.defaultUrl = flags.url
+    if (flags['clear-url']) updated.defaultUrl = null
+    if (flags.name !== undefined) updated.name = flags.name
+    const st = readState()
+    writeState({ ...st, patched: { ...st.patched, [chosen.id]: { name: updated.name, defaultUrl: updated.defaultUrl } } })
+    return ok({ project: updated, updated: true }, target(updated.id, updated.name))
+  }
+
+  return err('usage_error', `unknown project subcommand "${sub}".`)
+}
+
+function resolveRunProject(flags) {
+  const list = projects()
+  if (serviceKey()) return { id: 'proj_stub_ci', name: null }
+  const selector = flags.project || fixture('AGENTIQA_PROJECT_ID', '') || selectedId()
+  const chosen = match(selector, list) ?? (list.length === 1 ? list[0] : null)
+  return chosen ? { id: chosen.id, name: chosen.name } : null
+}
+
+function runCommand(rest) {
+  const { flags } = parse(rest)
+  const project = resolveRunProject(flags)
+  if (!project) {
+    return err(
+      'project_not_found',
+      'No project selected. Run `agentiqa project list` and `agentiqa project use <id|name>`.',
+      { target: target() },
+    )
+  }
+  const title = flags['plan-id'] ? `Plan ${flags['plan-id']}` : 'All plans'
+  return ok(
+    {
+      outcome: 'passed',
+      plans: [
+        {
+          title,
+          outcome: 'passed',
+          durationSec: 31,
+          exitCode: 0,
+          runUrl: `https://web.agentiqa.com/projects/${project.id}/history/run_stub`,
+        },
+      ],
+    },
+    target(project.id, project.name),
+  )
+}
+
+function planCommand(rest) {
+  const { flags, positional } = parse(rest)
+  const sub = positional[0]
+  const project = resolveRunProject(flags)
+  if (!project) {
+    return err(
+      'project_not_found',
+      'No project selected. Run `agentiqa project list` and `agentiqa project use <id|name>`.',
+      { target: target() },
+    )
+  }
+  if (sub === 'list') {
+    return ok(
+      {
+        plans: [
+          { id: 'tp_stub_login', title: 'Login', labels: [], projectId: project.id },
+          { id: 'tp_123', title: 'Checkout', labels: [], projectId: project.id },
+        ],
+      },
+      target(project.id, project.name),
+    )
+  }
+  if (sub === 'get') {
+    return ok(
+      {
+        plan: {
+          id: positional[1] ?? 'tp_stub_login',
+          title: 'Login',
+          projectId: project.id,
+          steps: [],
+        },
+      },
+      target(project.id, project.name),
+    )
+  }
+  return err('usage_error', `unknown plan subcommand "${sub}".`)
+}
+
+// ── dispatch ────────────────────────────────────────────────────────────────
+
+const command = argv[0]
+
+if (!command || command === '--help' || command === '-h') {
+  process.stderr.write(HELP)
+  done(0)
+}
+if (command === '--version') {
+  process.stdout.write('1.1.73\n')
+  done(0)
+}
+if (command === 'whoami') {
+  process.stdout.write('eval-stub@example.invalid\n')
+  done(0)
+}
+if (command === 'login' || command === 'logout') {
+  done(0)
+}
+if (command === 'project') projectCommand(argv.slice(1))
+if (command === 'run') runCommand(argv.slice(1))
+if (command === 'plan') planCommand(argv.slice(1))
+if (command === 'explore') {
+  const { flags } = parse(argv.slice(1))
+  const project = resolveRunProject(flags)
+  ok(
+    { outcome: 'passed', findings: [], testPlan: [] },
+    target(project?.id ?? null, project?.name ?? null),
+  )
+}
+if (command === 'labels') {
+  ok({ labels: [{ id: 'lbl_stub', name: 'smoke', color: '#4c8bf5' }] }, target())
+}
+if (command === 'runs') {
+  ok({ runs: [], issues: [] }, target())
+}
+
+err('usage_error', `unknown command "${command}". Run \`agentiqa --help\`.`)

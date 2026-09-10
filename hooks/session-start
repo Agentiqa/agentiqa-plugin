@@ -20,10 +20,41 @@ messages=()
 #
 # It reports, it does not self-upgrade: `npm install -g` on a live session can
 # swap the binary out from under a command the agent is already running.
+#
+# Two separate checks, because they answer different questions:
+#
+#  - REQUIRED MINIMUM (cli-requirements.json → minCliVersion): the oldest CLI that
+#    carries every verb the skills document. Below it, the skill is actively wrong
+#    about the tool on PATH, so this is a blocking-tone message and needs no network
+#    (the number is committed next to the skills that depend on it).
+#  - BEHIND LATEST (npm `latest`, cached 24h): informational, network-dependent, and
+#    deliberately never the load-bearing check — a registry lookup that fails or is
+#    stale must not silence the fact that a documented verb is missing.
+#
+# The minimum lives in ONE place, cli-requirements.json, read by this hook and by
+# scripts/check-skill-cli-freshness.mjs. Bump it there whenever a skill starts
+# documenting a verb an older CLI does not have.
 
 AGENTIQA_CACHE_DIR="${HOME}/.agentiqa"
 AGENTIQA_LATEST_CACHE="${AGENTIQA_CACHE_DIR}/plugin-latest-version"
 AGENTIQA_LATEST_TTL=86400 # 24h — mirrors the CLI's own update-check window
+
+# Plugin root: the host sets CLAUDE_PLUGIN_ROOT / CODEX_PLUGIN_ROOT / PLUGIN_ROOT,
+# but this hook also runs standalone in CI, so fall back to its own location.
+AGENTIQA_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}"
+if [ -z "$AGENTIQA_PLUGIN_ROOT" ] || [ ! -f "${AGENTIQA_PLUGIN_ROOT}/cli-requirements.json" ]; then
+  AGENTIQA_PLUGIN_ROOT="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)" || AGENTIQA_PLUGIN_ROOT=""
+fi
+
+# Read minCliVersion without a jq dependency. Any parse failure yields an empty
+# string, which disables the minimum check rather than inventing a version.
+read_min_cli_version() {
+  local f="${AGENTIQA_PLUGIN_ROOT}/cli-requirements.json"
+  [ -r "$f" ] || return 0
+  sed -n 's/.*"minCliVersion"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$f" | head -1
+}
+
+AGENTIQA_MIN_CLI_VERSION="$(read_min_cli_version || true)"
 
 # True when $1 is strictly older than $2, comparing the release triple only (a
 # `1.1.45-staging.abc` build counts as 1.1.45). Non-numeric input → not older,
@@ -79,7 +110,14 @@ else
     refresh_latest_cache_detached
   fi
 
-  if [ -n "$installed" ] && [ -n "$cached_version" ] &&
+  below_minimum=0
+  if [ -n "$installed" ] && [ -n "$AGENTIQA_MIN_CLI_VERSION" ] &&
+    version_is_older "$installed" "$AGENTIQA_MIN_CLI_VERSION"; then
+    below_minimum=1
+    messages+=("Agentiqa CLI ${installed} is BELOW the ${AGENTIQA_MIN_CLI_VERSION} this plugin's skills require. Verbs they document are missing from your binary and will exit 2 as \`unknown subcommand\` — the project lifecycle verbs (\`agentiqa project create|get|update\`) and, earlier, \`agentiqa labels create\` (1.1.44). Update BEFORE running Agentiqa commands: npm install -g agentiqa@latest")
+  fi
+
+  if [ "$below_minimum" -eq 0 ] && [ -n "$installed" ] && [ -n "$cached_version" ] &&
     version_is_older "$installed" "$cached_version"; then
     messages+=("Agentiqa CLI ${installed} is behind ${cached_version}. A stale CLI rejects verbs this skill documents with exit 2 (e.g. \`agentiqa labels create\`, added in 1.1.44). Update before running Agentiqa commands: npm install -g agentiqa@latest")
   fi

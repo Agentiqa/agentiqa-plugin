@@ -1,0 +1,105 @@
+name: skill-checks
+
+# The skills in this repo document a CLI that ships from another repo
+# (Agentiqa/agentiqa → npm `agentiqa`). Nothing but a gate keeps the two together,
+# so every push checks that each `agentiqa <noun> <verb>` and `--flag` the skills
+# mention actually exists in the CLI surface.
+#
+# The required job is HERMETIC: it reads the committed fixtures/cli-help.txt
+# snapshot, so it needs no npm install, no network, and no account. The live job
+# installs the published CLI and re-runs the same check against `agentiqa --help`;
+# it is advisory (`continue-on-error`) because it fails legitimately in the window
+# between "skill documents a new verb" and "the CLI release carrying it is on npm".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  freshness-snapshot:
+    name: skills match the committed CLI help snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: check-skill-cli-freshness (snapshot mode)
+        run: node scripts/check-skill-cli-freshness.mjs --verbose
+
+  hook-syntax:
+    name: hooks parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n every hook script
+        run: |
+          set -euo pipefail
+          for f in hooks/session-start evals/run.sh evals/_shim/_guard; do
+            bash -n "$f"
+            echo "ok: $f"
+          done
+      - name: manifests are valid JSON
+        run: |
+          set -euo pipefail
+          for f in cli-requirements.json marketplace.json .claude-plugin/plugin.json \
+                   .claude-plugin/marketplace.json .codex-plugin/plugin.json \
+                   .cursor-plugin/plugin.json hooks/hooks.json hooks/hooks-codex.json \
+                   hooks/hooks-cursor.json; do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" && echo "ok: $f"
+          done
+
+  freshness-live:
+    name: skills match the published CLI (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: install the published CLI
+        run: npm install -g agentiqa@latest
+      - name: check-skill-cli-freshness (live mode)
+        run: node scripts/check-skill-cli-freshness.mjs --live --verbose
+
+  eval-graders:
+    name: eval graders discriminate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: case.yaml files parse and use only schema keys
+        run: |
+          set -euo pipefail
+          npx --yes js-yaml --version >/dev/null
+          for f in evals/*/case.yaml; do
+            npx --yes js-yaml "$f" > /tmp/case.json
+            node -e "
+              const d = JSON.parse(require('fs').readFileSync('/tmp/case.json','utf8'))
+              const top = new Set(['schema_version','name','description','tags','plugins','context','execution','runs','graders','expected_outcome'])
+              const grader = new Set(['type','name','target','pattern','flags','match','weight','arm','tool','input_match','min','max','path','exists','criteria','focus','baseline_file'])
+              for (const k of Object.keys(d)) if (!top.has(k)) throw new Error('$f: unknown top-level key ' + k)
+              if (!d.graders?.length) throw new Error('$f: no graders')
+              const names = new Set()
+              for (const g of d.graders) {
+                if (!g.type || !g.name) throw new Error('$f: grader missing type/name')
+                if (names.has(g.name)) throw new Error('$f: duplicate grader name ' + g.name)
+                names.add(g.name)
+                for (const k of Object.keys(g)) if (!grader.has(k)) throw new Error('$f: grader ' + g.name + ' unknown key ' + k)
+              }
+              for (const [k] of Object.entries(d.execution?.env ?? {})) {
+                if (!/^EVAL_[A-Z0-9_]*$/.test(k)) throw new Error('$f: execution.env key ' + k + ' is not EVAL_*')
+              }
+            "
+            echo "ok: $f"
+          done
+      - name: graders catch every documented failure mode
+        run: node evals/selftest.mjs --verbose

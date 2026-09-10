@@ -1,0 +1,280 @@
+Agentiqa CLI
+AI-powered testing for web apps.
+
+Usage:
+  agentiqa explore "<prompt>" [flags]
+  agentiqa run [--project <id|name>] [flags]
+  agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name>> [--json]
+  agentiqa plan <list | get <id> | save --file <path>> [--json]
+  agentiqa runs get <plan-id> [--limit <n>] [--json]
+  agentiqa labels <list | create <name> | update <id> | delete <id>> [--name <name>] [--color <#rrggbb>] [--json]
+  agentiqa login [--api-url <url>] [--no-browser]
+  agentiqa logout
+  agentiqa whoami
+
+Commands:
+  explore  Test a web app with an AI agent
+  run      Execute saved test plans
+  project  List, inspect, create, update, and choose projects
+  plan     List, show, or save (create/edit) test plans
+  runs     Read run verdicts/history for a saved plan
+  labels   List, create, rename, or delete the project's labels
+  login    Authenticate with Agentiqa (opens browser)
+  logout   Remove stored credentials
+  whoami   Show the current authenticated user
+
+Explore flags:
+  --url <url>                Web URL to test. Optional when logged in with a single project
+                             — the CLI reuses that project's URL.
+  --feature <text>           What was built, from the user's perspective.
+  --hint <text>              A specific thing to test. (repeatable)
+  --known-issue <text>       Something the agent should NOT report. (repeatable)
+  --credential <name:secret> A login credential to hand the agent. (repeatable)
+  --model <provider:model>   LLM to drive the whole stack (coordinator + agent). Providers:
+                             google | anthropic | openai. "openai" is any
+                             OpenAI-chat-completions-compatible endpoint — OpenAI, Azure
+                             Foundry, OpenRouter, vLLM, self-hosted (point OPENAI_BASE_URL
+                             at it). Omit to use the default managed Google model (available
+                             on every plan). A non-Google model is BYOK (bring your own
+                             key/model), which is COMPANY-PLAN-ONLY: the CLI verifies your
+                             account's entitlement before honoring it and needs that
+                             provider's key (see Environment variables below).
+  --dry-run                  Check the engine and exit without running the agent.
+  --no-artifacts             Don't save screenshots/video to the temp directory.
+  --verbose                  Show raw observations and actions.
+  --auto-approve             Auto-approve scope and plan checkpoints (required for
+                             non-interactive runs).
+  --embedded                 Force the in-process embedded engine instead of the env-matched
+                             hosted engine an authenticated service-key explore now defaults
+                             to. Embedded runs execute locally: Chromium and ffmpeg are
+                             provisioned on first use (installing the CLI downloads
+                             neither), and a run whose ffmpeg provisioning fails proceeds
+                             without video. Use for offline/local execution or
+                             BYOK-on-embedded (a self-provided GEMINI_API_KEY / non-Google
+                             COORDINATOR_MODEL). Ignored when --engine <url> is given.
+  --json                     Emit machine-readable JSON on stdout (schemaVersion 1).
+  --format <text|json>       Explicit output format; overrides the AG_OUTPUT env var.
+
+Run flags:
+  --url <url>                Target URL (required with --plan; deprecated in project mode).
+  --plan <path>              Path to a local test plan JSON. Omit it to run the saved plans
+                             of a project instead.
+  --project <id|name>        Project whose saved plans to run — an exact id, or a unique
+                             case-insensitive name. Overrides AGENTIQA_PROJECT_ID and the
+                             project remembered by `agentiqa project use`. Ignored (and
+                             rejected on conflict) when AGENTIQA_SERVICE_KEY is set, since a
+                             service key is already scoped to one project.
+  --plan-id <id>             Run a single saved plan by id (project mode).
+  --label-ids <a,b,c>        Run every plan tagged with any of these labels (csv, project
+                             mode).
+  --label-id <id>            Alias for --label-ids. (deprecated)
+  --mode <sequential|parallel>
+                             Execution order for the selected plans (default: sequential).
+  --artifacts-dir <path>     Directory for run artifacts (default: a temp directory).
+  --no-artifacts             Don't save video/frame artifacts.
+  --share                    DEPRECATED no-op, accepted so existing CI invocations keep
+                             working. Public share links were retired 2026-07 in favor of
+                             org-member team access: the run deep link is always available
+                             as runUrl in the JSON envelope and printed in human output.
+                             Whoever you send it to needs an Agentiqa login in the run
+                             owner's organization.
+  --embedded                 Force the in-process embedded engine instead of the env-matched
+                             hosted engine an authenticated run now defaults to. Embedded
+                             runs execute locally and do NOT persist to your account (no
+                             runUrl, no server-side video). Use for offline/local execution
+                             or BYOK-on-embedded (a self-provided GEMINI_API_KEY /
+                             non-Google COORDINATOR_MODEL). Ignored when --engine <url> is
+                             given.
+
+Project flags:
+  --clear                    With `project use`: forget the remembered project.
+  --archived                 With `project list`: include archived (soft-deleted) projects
+                             and show the ARCHIVED column.
+  --url <url>                Target URL. Required by `project create` (the project name is
+                             derived from its host when --name is omitted); on `project
+                             update` it retargets the project, e.g. after a preview deploy.
+  --name <name>              Project name. Optional on `create` (derived from the --url
+                             host: `app.example.com` → `example`); the new name on `update`.
+                             Names are unique per owner, case-insensitively — a collision is
+                             a 409, never a silent rename.
+  --clear-url                With `project update`: store an EXPLICIT empty default URL.
+                             Mutually exclusive with --url; omitting both preserves the
+                             stored URL.
+  --persist-browser-profile <true|false>
+                             Keep the browser profile (cookies, storage) between runs of
+                             this project. Omitted on `update` = preserved.
+  --org-shared <true|false>  Share this project with your organization. Requires an active
+                             Company-plan org — without one the server keeps the project
+                             private and the CLI exits 2 `org_sharing_unavailable` rather
+                             than reporting a success.
+  --if-not-exists            With `project create`: a name collision is not an error — the
+                             existing project is returned with `created: false` and exit 0,
+                             so a retried CI job never mints a twin.
+  --expected-updated-at <iso>
+                             With `project update`: opt-in optimistic concurrency. When the
+                             stored `updatedAt` differs, the write is refused with exit 2
+                             `stale_write` instead of overwriting a concurrent edit.
+  --project <id|name>        With `project current`: the per-invocation selector to report
+                             on (rung 1 of the resolution ladder, above AGENTIQA_PROJECT_ID
+                             and the remembered project).
+  --json                     Emit the standard JSON envelope on stdout. Every project verb
+                             adds `target: { apiBase, env, projectId, name }`. Payloads:
+                             `projects` + `selected` (list) / `project` (use) / `projectId`
+                             + `name` + `source` + `valid` (current) / `project` + `access`
+                             + `archived` + `activeRuns` (get) / `project` + `created`
+                             (create) / `project` + `updated` (update). Failures carry a
+                             stable `error.code`, plus `existing` on a name conflict and
+                             `candidates` on an unmatched selector.
+
+Plan flags:
+  --project <id|name>        Project to operate in — an exact id, or a unique
+                             case-insensitive name. Overrides AGENTIQA_PROJECT_ID and the
+                             project remembered by `agentiqa project use`. Ignored (and
+                             rejected on conflict) when AGENTIQA_SERVICE_KEY is set, since a
+                             service key is already scoped to one project.
+  --file <path>              TestPlanV2 JSON to upsert with `plan save`: creates when it has
+                             no id (a `tp_<uuid>` is minted), edits in place when it does. A
+                             non-empty `title` is always required. On EDIT, top-level fields
+                             you omit are preserved from the stored plan (only fields
+                             present in your JSON change; send an explicit `null` or `[]` to
+                             clear one), and `steps` is always taken from your JSON. Accepts
+                             a bare plan object or the `{ plan }` envelope `plan get --json`
+                             emits; use `-` to read from stdin (so `plan get --json | plan
+                             save --file -` round-trips). Field values are sent as-is — the
+                             server owns all save normalization.
+  --json                     Emit the standard JSON envelope on stdout: `plans` is a
+                             TestPlanV2 array (list) / `plan` is a TestPlanV2 object (get) /
+                             `plan` + `lintWarnings` is the saved plan and its lint warnings
+                             (save).
+
+Runs flags:
+  --project <id|name>        Project to operate in — an exact id, or a unique
+                             case-insensitive name. Overrides AGENTIQA_PROJECT_ID and the
+                             project remembered by `agentiqa project use`.
+  --limit <n>                Maximum runs to show, newest first by createdAt (default: 5).
+  --json                     Emit the standard JSON envelope on stdout: `runs` is a
+                             TestPlanV2Run array (newest first, limit applied) and `issues`
+                             is the bugs discovered for this plan.
+
+Labels flags:
+  --project <id|name>        Project to operate in — an exact id, or a unique
+                             case-insensitive name. Overrides AGENTIQA_PROJECT_ID and the
+                             project remembered by `agentiqa project use`.
+  --name <name>              New label name for `labels update <id>`.
+  --color <#rrggbb>          Label color (6-digit hex) for `labels create` / `labels
+                             update`. Defaults to the first unused palette color on create,
+                             and is left unchanged on update.
+  --json                     Emit the standard JSON envelope on stdout: `labels` is an array
+                             of { id, name, color } (list) / `label` is the saved { id,
+                             name, color } (create, update) / `deleted` + `detachedPlanIds`
+                             is the removed label and the plans it was detached from
+                             (delete).
+
+Login flags:
+  --api-url <url>            Control-plane to authenticate against, e.g.
+                             https://s.agentiqa.com. Wins over AGENTIQA_API_URL and over the
+                             environment your last login recorded. The environment is stored
+                             WITH the credential, so every later command targets it too,
+                             until the next `agentiqa login` elsewhere or `agentiqa logout`.
+                             Omit it to re-authenticate against the environment you are
+                             already bound to (or, on a fresh machine, the build default).
+  --no-browser               Don't open a browser — print the auth URL to visit instead.
+
+Common flags:
+  --engine <url>             Explicit engine URL; wins over the env-matched default. An
+                             authenticated run defaults to the hosted engine for your API
+                             host (agentiqa.com → engine.agentiqa.com), which persists the
+                             run to your account; pass --embedded to force the local
+                             in-process engine instead. When a remote engine is used,
+                             Playwright/Chromium and ffmpeg are not required locally — it
+                             drives the browser and CLI run artifacts download the
+                             engine-rendered video when available (a local ffmpeg render is
+                             only a fallback). No separate engine token is needed either
+                             way: the short-lived engine credential is minted automatically
+                             from AGENTIQA_SERVICE_KEY, or from your `agentiqa login`
+                             session when no service key is set.
+  --help                     Show this help and exit.
+  --version                  Print the CLI version and exit.
+
+Environment variables:
+  AGENTIQA_API_URL           Override the Agentiqa control-plane API for this invocation.
+                             When unset, the environment recorded by your last `agentiqa
+                             login` applies (so a staging login keeps every later command on
+                             staging), then the build’s default backend:
+                             https://agentiqa.com for regular installs, while
+                             `agentiqa@staging` builds are baked to https://s.agentiqa.com.
+                             Invocations authenticated with AGENTIQA_SERVICE_KEY ignore the
+                             login-recorded environment — a service key resolves to this
+                             variable or the build default only.
+  AGENTIQA_PROJECT_ID        Project the project-scoped commands (run, plan, runs, labels)
+                             operate in. Sits between --project (which wins) and the project
+                             remembered by `agentiqa project use`. Use it to pin a project
+                             for a shell session or a CI job without a service key.
+  AGENTIQA_SERVICE_KEY       Service key for unattended runs (CI). Replaces interactive
+                             login and unlocks hosted engine access — no separate engine
+                             token required. It is scoped to ONE project and overrides every
+                             other project selection. Only a project owner can mint one; a
+                             member of a shared project does not need one — `agentiqa login`
+                             plus `agentiqa project use` / --project / AGENTIQA_PROJECT_ID
+                             runs that project directly.
+  AGENTIQA_ENGINE_TOKEN      Optional internal bearer override for hosted engine HTTP +
+                             WebSocket calls. Only needed for internal infra;
+                             customer-facing CI should rely on AGENTIQA_SERVICE_KEY instead.
+  GEMINI_API_KEY             BYOK Gemini key. Only needed for the in-process engine (no
+                             --engine) on the default Google model.
+  ANTHROPIC_API_KEY          API key for --model anthropic:<model> (BYOK, Company-only).
+                             Honored only when your account is on the Company plan;
+                             otherwise ignored and managed runs stay on Google.
+  OPENAI_API_KEY             API key for --model openai:<model> (OpenAI, Azure Foundry,
+                             OpenRouter, vLLM, self-hosted; BYOK, Company-only). Honored
+                             only on the Company plan; otherwise ignored.
+  OPENAI_BASE_URL            Optional endpoint override for --model openai:<model> (e.g.
+                             https://<resource>.services.ai.azure.com/openai/v1). Unset uses
+                             OpenAI's default (https://api.openai.com/v1).
+  COORDINATOR_MODEL / DEFAULT_MODEL
+                             Override the coordinator / default model id. With a non-Google
+                             --model and these unset, both default to that model so the full
+                             stack runs on your chosen provider; an explicit value here
+                             always wins.
+  AG_OUTPUT                  Set to "json" to enable JSON output mode globally (equivalent
+                             to --json). Use --format text to override.
+  AG_SHARE                   DEPRECATED no-op (equivalent to --share), still accepted so
+                             existing CI invocations keep working. Public share links were
+                             retired 2026-07 in favor of org-member team access; the run
+                             deep link is always available as runUrl in the JSON envelope
+                             and printed in human output.
+  AGENTIQA_UPDATE_CHECK      Set to "0" to disable the "Update available" check (a cached,
+                             fire-and-forget npm dist-tags lookup; sends no user data). Also
+                             disabled by { "updateCheck": false } in
+                             ~/.agentiqa/config.json.
+  AGENTIQA_SKIP_FFMPEG_DOWNLOAD
+                             Set to "1" to never download ffmpeg. Installing the CLI
+                             downloads nothing; a run that records video locally provisions
+                             ffmpeg on first use unless one is already on PATH. With this
+                             set, a run without ffmpeg simply skips the video and keeps
+                             screenshots and result.json.
+  AGENTIQA_FFMPEG_DIR        Directory the CLI provisions its ffmpeg copy into (default:
+                             ~/.agentiqa/ffmpeg). Point it at a cached path in CI to keep
+                             the one-time download out of every job.
+
+Exit codes:
+  0                          Success — all selected plans passed (or there was nothing to
+                             run).
+  1                          Plan failure — plans executed, at least one failed.
+  2                          Usage / configuration error (bad flags, not authenticated, a
+                             selector that matched no plans, or a project with no plans to
+                             run), a persistent account-state block (quota / org run-cap
+                             exhausted), OR a batch in which one or more plans were skipped
+                             because a credential they sign in with is not stored. Something
+                             that had to run could not, and retrying cannot help.
+  3                          Infra / runtime error (engine unreachable, auth/exchange
+                             failure, a no-verdict batch, or an unexpected internal error) —
+                             a correct, entitled invocation could not reach a verdict, so it
+                             is safe for CI to retry.
+
+JSON output (--json / AG_OUTPUT=json):
+  Every JSON document includes "schemaVersion": 1 at the top level.
+  Success: { "ok": true, "schemaVersion": 1, ...commandFields }
+  Failure: { "ok": false, "schemaVersion": 1, "error": { "code": "...", "message": "..." } }
+  All log lines go to stderr; stdout contains exactly one JSON document.
+  ANSI color is disabled when --json is active or stdout is not a TTY.

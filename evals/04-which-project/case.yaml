@@ -1,0 +1,109 @@
+schema_version: '1.1'
+name: which-project-am-i-in
+description: >
+  A read-only question. The answer lives in `project current` (which project, from
+  which rung) plus one read for the URL, because `current` deliberately does not
+  return `defaultUrl`. The failure modes this case exists to catch: answering from
+  the repo's config file, and "helpfully" creating or switching a project when the
+  user only asked a question.
+tags: [projects, current, read-only, wave-1]
+plugins: ['../..']
+
+context:
+  scaffold_script: setup.sh
+
+execution:
+  prompt: |
+    Which Agentiqa project am I currently using, and what is its URL?
+  max_turns: 20
+  timeout_seconds: 300
+  allowed_tools: [Bash, Read, Grep, Glob]
+  env:
+    EVAL_AGENTIQA_STUB_PROJECTS: '[{"id":"proj_stub_shop_staging","name":"shop-staging","defaultUrl":"https://staging.shop.dev"},{"id":"proj_stub_shop_prod","name":"shop-prod","defaultUrl":"https://shop.dev"}]'
+    EVAL_AGENTIQA_STUB_SELECTED: 'proj_stub_shop_staging'
+
+runs: 3
+
+graders:
+  - type: regex
+    name: asked-project-current
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","current"'
+    match: contains
+    arm: both
+
+  # `current` returns { projectId, name, source, valid } — no defaultUrl. The URL
+  # has to come from `get` or `list`.
+  - type: regex
+    name: read-the-url-from-get-or-list
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","(get|list)"'
+    match: contains
+    arm: both
+
+  # ── a question is not a mutation ──────────────────────────────────────────
+  - type: regex
+    name: nothing-created-switched-or-edited
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","(create|use|update)"'
+    match: not_contains
+    arm: both
+
+  # A hermeticity breach is a failed case, not a footnote. `evals/run.sh` shims
+  # npx/npm/pnpm/yarn/bunx/corepack/curl/wget to refuse anything mentioning
+  # "agentiqa" and records the refusal here — because an agent that reaches the
+  # published CLI is being scored against a live account, not the stub.
+  - type: regex
+    name: hermetic-guard-never-tripped
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'hermeticViolation'
+    match: not_contains
+    arm: both
+
+  - type: regex
+    name: no-invented-flags
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'unknownFlag'
+    match: not_contains
+    arm: both
+
+  - type: tool_used
+    name: no-hand-rolled-http
+    tool: Bash
+    input_match: 'curl|wget|http\.client|requests\.(get|post)'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: agentiqa-skill-fired
+    tool: Skill
+
+  # ── the answer itself ─────────────────────────────────────────────────────
+  - type: regex
+    name: answer-names-the-right-url
+    target: last_message
+    pattern: 'https://staging\.shop\.dev'
+    match: contains
+    arm: both
+
+  - type: regex
+    name: answer-does-not-quote-the-decoy
+    target: last_message
+    pattern: 'proj_decoy_do_not_use|old-staging\.shop\.dev'
+    match: not_contains
+    arm: both
+
+  - type: llm
+    name: answers-the-question-with-provenance
+    focus: last_message
+    criteria: >
+      The reply names the current project (shop-staging / proj_stub_shop_staging)
+      and its URL (https://staging.shop.dev), and it got both from the Agentiqa CLI
+      rather than from a file in the repo. Bonus, not required: it mentions how the
+      selection was made (the `source` rung, here the remembered project). It must
+      not report the repo's proj_decoy_do_not_use or https://old-staging.shop.dev.
+
+expected_outcome: >
+  project current --json, then project get/list for the defaultUrl; answer names
+  shop-staging and https://staging.shop.dev. No writes.

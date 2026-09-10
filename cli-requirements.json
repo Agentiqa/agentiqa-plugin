@@ -1,0 +1,21 @@
+{
+  "$comment": [
+    "SINGLE SOURCE OF TRUTH for the minimum `agentiqa` CLI version this plugin's skills",
+    "require. Read by hooks/session-start (the outdated-CLI notice) and by",
+    "scripts/check-skill-cli-freshness.mjs. Change it HERE and nowhere else.",
+    "",
+    "BUMP THIS when a skill starts documenting a verb or flag that an older CLI does not",
+    "have. The current value is a PLACEHOLDER: the `agentiqa project create|get|update`",
+    "wave is not published to npm yet. Replace 1.1.73 with the real published version as",
+    "soon as the CLI release carrying `project create` lands on the `latest` dist-tag,",
+    "and refresh fixtures/cli-help.txt from that build in the same commit."
+  ],
+  "minCliVersion": "1.1.73",
+  "minCliVersionPlaceholder": true,
+  "minCliVersionReason": "`agentiqa project get|create|update`, `project list --archived`, and the project --json envelope (target/created/source/valid, error codes name_conflict | not_found | owner_only | stale_write | service_key_*).",
+  "helpSnapshot": {
+    "path": "fixtures/cli-help.txt",
+    "source": "apps/cli/src/__tests__/__snapshots__/usage.txt on Agentiqa/agentiqa branch feature/cli-project-lifecycle-cli — the byte-stable render of `agentiqa --help` from apps/cli/src/argSchema.ts",
+    "refreshWith": "agentiqa --help > fixtures/cli-help.txt"
+  }
+}

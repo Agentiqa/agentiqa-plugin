@@ -26,6 +26,15 @@
  *                                 (default: ./.agentiqa-stub-log.jsonl in the CWD,
  *                                 which under `claude plugin eval` is the run's own
  *                                 sandbox dir — so runs never share a log)
+ *   EVAL_AGENTIQA_STUB_STATE      where to keep what the run itself changed
+ *                                 (default: <log>.state.json)
+ *
+ * The fixture is the SEED, not the whole world. `create` and `use` write through to
+ * the state file so the next invocation sees them, because an agent that creates a
+ * project and is then told by `use`/`get`/`list` that it does not exist does not
+ * carry on — it stops and reports the contradiction (measured: it is the correct
+ * response, and it made case 01 unpassable). Fixtures stay declarative; only what
+ * the agent did during the run is layered on top.
  *
  * Deliberately strict: an unknown subcommand or an undeclared flag exits 2 the way
  * the real CLI does. An eval that only "passes" because the stub tolerated an
@@ -43,6 +52,27 @@ function fixture(name, fallback = undefined) {
 }
 
 const LOG = fixture('AGENTIQA_STUB_LOG', path.join(process.cwd(), '.agentiqa-stub-log.jsonl'))
+const STATE = fixture('AGENTIQA_STUB_STATE', LOG ? `${LOG}.state.json` : null)
+
+/** What THIS run changed, layered over the declarative fixture. */
+function readState() {
+  if (!STATE) return { created: [], patched: {}, selected: undefined }
+  try {
+    const raw = JSON.parse(fs.readFileSync(STATE, 'utf8'))
+    return { created: raw.created ?? [], patched: raw.patched ?? {}, selected: raw.selected }
+  } catch {
+    return { created: [], patched: {}, selected: undefined }
+  }
+}
+
+function writeState(next) {
+  if (!STATE) return
+  try {
+    fs.writeFileSync(STATE, `${JSON.stringify(next)}\n`)
+  } catch {
+    /* state we cannot persist must not change what the agent sees this call */
+  }
+}
 
 const API_BASE = 'https://agentiqa.com'
 const ENV_LABEL = 'production'
@@ -88,8 +118,10 @@ function target(projectId = null, name = null) {
 // ── fixture state ───────────────────────────────────────────────────────────
 
 function projects() {
+  const state = readState()
   try {
-    const raw = JSON.parse(fixture('AGENTIQA_STUB_PROJECTS', '[]'))
+    const seed = JSON.parse(fixture('AGENTIQA_STUB_PROJECTS', '[]'))
+    const raw = [...seed, ...state.created].map((p) => ({ ...p, ...(state.patched[p.id] ?? {}) }))
     return raw.map((p) => ({
       id: p.id,
       name: p.name ?? null,
@@ -107,6 +139,8 @@ function projects() {
 }
 
 function selectedId() {
+  const state = readState()
+  if (state.selected !== undefined) return state.selected
   return fixture('AGENTIQA_STUB_SELECTED', '') || null
 }
 
@@ -312,7 +346,10 @@ function projectCommand(rest) {
         { target: target() },
       )
     }
-    if (flags.clear) return ok({ project: null }, target())
+    if (flags.clear) {
+      writeState({ ...readState(), selected: null })
+      return ok({ project: null }, target())
+    }
     const chosen = match(arg, list)
     if (!chosen) {
       return err('not_found', `No project matches "${arg}".`, {
@@ -320,6 +357,7 @@ function projectCommand(rest) {
         target: target(),
       })
     }
+    writeState({ ...readState(), selected: chosen.id })
     return ok({ project: publicProject(chosen) }, target(chosen.id, chosen.name))
   }
 
@@ -384,6 +422,8 @@ function projectCommand(rest) {
       persistBrowserProfile: flags['persist-browser-profile'] === 'true',
       orgShared: flags['org-shared'] === 'true',
     }
+    const state = readState()
+    writeState({ ...state, created: [...state.created, created] })
     return ok({ project: created, created: true }, target(created.id, created.name))
   }
 
@@ -402,6 +442,8 @@ function projectCommand(rest) {
     if (flags.url !== undefined) updated.defaultUrl = flags.url
     if (flags['clear-url']) updated.defaultUrl = null
     if (flags.name !== undefined) updated.name = flags.name
+    const st = readState()
+    writeState({ ...st, patched: { ...st.patched, [chosen.id]: { name: updated.name, defaultUrl: updated.defaultUrl } } })
     return ok({ project: updated, updated: true }, target(updated.id, updated.name))
   }
 

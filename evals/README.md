@@ -52,6 +52,13 @@ Fixture state per case comes from `EVAL_*` env vars set in `case.yaml`:
 | `EVAL_AGENTIQA_STUB_SELECTED` | id of the remembered project                        |
 | `EVAL_AGENTIQA_SERVICE_KEY`   | when set, behave like a pinned service key          |
 | `EVAL_AGENTIQA_STUB_LOG`      | override the log path (default: `./.agentiqa-stub-log.jsonl`) |
+| `EVAL_AGENTIQA_STUB_STATE`    | override the state path (default: `<log>.state.json`) |
+
+The fixture is the **seed**, not the whole world: `create`, `use` and `update` write
+through to the state file, so the next invocation in the same run sees them. Without
+that, an agent that creates a project and is then told by `use` / `get` / `list` that
+it does not exist stops and reports the contradiction instead of carrying on — which
+is the right thing for it to do, and which made `01-create-and-run` unpassable.
 
 It is deliberately strict. An unknown subcommand or an undeclared flag exits 2 the
 way the real CLI does, and the rejected flag is recorded as `unknownFlag` so a

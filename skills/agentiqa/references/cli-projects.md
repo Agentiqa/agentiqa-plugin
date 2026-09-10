@@ -22,9 +22,10 @@ run through this whole reference:
 agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name>> [--json]
 ```
 
-Requires an agentiqa CLI new enough to carry `project create` — see
-`../../../cli-requirements.json`. An older binary answers `unknown project
-subcommand` and exits 2; that is a stale install, not a broken command.
+Requires an agentiqa CLI new enough to carry `project create` — the plugin pins the
+minimum in its `cli-requirements.json` and checks it at session start. An older binary
+answers `unknown project subcommand` and exits 2; that is a stale install, not a broken
+command.
 
 ## The envelope
 
@@ -34,28 +35,45 @@ Success:
 {
   "ok": true,
   "schemaVersion": 1,
-  "project": { "id": "proj_…", "name": "shop-staging", "defaultUrl": "https://staging.shop.dev", "targetType": "web", "persistBrowserProfile": false, "orgShared": false },
+  "project": {
+    "id": "proj_…",
+    "name": "shop-staging",
+    "defaultUrl": "https://staging.shop.dev",
+    "targetType": "web",
+    "persistBrowserProfile": false,
+    "orgShared": false
+  },
   "created": true,
-  "target": { "apiBase": "https://agentiqa.com", "env": "production", "projectId": "proj_…", "name": "shop-staging" }
+  "target": {
+    "apiBase": "https://agentiqa.com",
+    "env": "production",
+    "projectId": "proj_…",
+    "name": "shop-staging"
+  }
 }
 ```
 
 Failure:
 
 ```json
-{ "ok": false, "schemaVersion": 1, "error": { "code": "name_conflict", "message": "…" }, "existing": { "id": "proj_…", "name": "shop-staging" } }
+{
+  "ok": false,
+  "schemaVersion": 1,
+  "error": { "code": "name_conflict", "message": "…" },
+  "existing": { "id": "proj_…", "name": "shop-staging" }
+}
 ```
 
 Per-verb payloads (all of them additionally carry `target`):
 
-| verb      | success payload                                     |
-| --------- | --------------------------------------------------- |
+| verb      | success payload                                                                   |
+| --------- | --------------------------------------------------------------------------------- |
 | `list`    | `projects: [{ id, name, defaultUrl, isOwner, sharedVia, archived }]` + `selected` |
-| `use`     | `project`                                           |
-| `current` | `projectId`, `name`, `source`, `valid`              |
-| `get`     | `project`, `access: { isOwner, sharedVia }`, `archived`, `activeRuns` |
-| `create`  | `project`, `created` (`true` \| `false`)            |
-| `update`  | `project`, `updated`                                |
+| `use`     | `project`                                                                         |
+| `current` | `projectId`, `name`, `source`, `valid`                                            |
+| `get`     | `project`, `access: { isOwner, sharedVia }`, `archived`, `activeRuns`             |
+| `create`  | `project`, `created` (`true` \| `false`)                                          |
+| `update`  | `project`, `updated`                                                              |
 
 `target` is printed by **every** verb because the API base comes from four rungs
 (`AGENTIQA_API_URL`, the login binding on disk, the build channel, the default), so
@@ -103,7 +121,12 @@ whether you have a usable id — you have one either way.
 Without the flag, the collision is exit 2 with the recovery data inline:
 
 ```json
-{ "ok": false, "schemaVersion": 1, "error": { "code": "name_conflict", "message": "…" }, "existing": { "id": "proj_abc", "name": "shop-staging" } }
+{
+  "ok": false,
+  "schemaVersion": 1,
+  "error": { "code": "name_conflict", "message": "…" },
+  "existing": { "id": "proj_abc", "name": "shop-staging" }
+}
 ```
 
 Take `existing.id` and continue. **Do not** run `project list` to find the id the
@@ -111,17 +134,18 @@ error just handed you, and do not retry the create with a mangled name.
 
 ## Choose which project you are in
 
-Four rungs, highest first. `project current --json` reports which one won as
-`source`, so you never have to infer it:
+Four rungs under a login, highest first — plus a service key, which pre-empts all of
+them. `project current --json` reports which one won as `source`, so you never have to
+infer it:
 
-| `source`         | set by                                        |
-| ---------------- | --------------------------------------------- |
-| `flag`           | `--project <id\|name>` on this one command    |
-| `env`            | `AGENTIQA_PROJECT_ID`                         |
-| `stored`         | `agentiqa project use <id\|name>`             |
-| `single-project` | the account has exactly one accessible project |
+| `source`         | set by                                                               |
+| ---------------- | -------------------------------------------------------------------- |
+| `flag`           | `--project <id\|name>` on this one command                           |
+| `env`            | `AGENTIQA_PROJECT_ID`                                                |
+| `stored`         | `agentiqa project use <id\|name>`                                    |
+| `single-project` | the account has exactly one accessible project                       |
 | `service-key`    | `AGENTIQA_SERVICE_KEY` — pins one project and beats everything above |
-| `none`           | nothing is selected                           |
+| `none`           | nothing is selected                                                  |
 
 ```bash
 agentiqa project use proj_abc --json          # remember it for later commands
@@ -131,8 +155,10 @@ agentiqa project current --json               # { projectId, name, source, valid
 ```
 
 - Prefer an **exact id**. A name is accepted (unique, case-insensitive), but a name
-  that matches nothing exits 2 `not_found` with the whole accessible list in
-  `candidates`, and an ambiguous one exits 2 `project_ambiguous`.
+  that matches nothing exits 2 `project_not_found` with the whole accessible list in
+  `candidates`, and an ambiguous one exits 2 `project_ambiguous`. (Resolving a
+  SELECTION is `project_not_found`; reading a project that is not there — `get` /
+  `update` — is `not_found`.)
 - `valid` in `project current` is the point of the verb: a project deleted in the web
   UI leaves a stale remembered id behind, and every later command would otherwise
   fail with a 404 that never mentions the selection. `valid: false` ⇒ re-select.
@@ -195,14 +221,15 @@ machine, or have them run `agentiqa login`.
 The 4-code contract in `exit-codes.md` applies, with one narrowing: **project verbs
 never exit 1.** Exit 1 is reserved for a real plan verdict from `run`.
 
-| code | meaning                                                | act on it                          |
-| ---- | ------------------------------------------------------ | ---------------------------------- |
-| `0`  | ok — including `created: false` and `valid: null`      | continue                           |
-| `2`  | usage / denied / conflict — a retry can never change it | read `error.code` and recover      |
-| `3`  | infra — control plane unreachable, 5xx                 | retry (see the loop in `exit-codes.md`) |
+| code | meaning                                                 | act on it                               |
+| ---- | ------------------------------------------------------- | --------------------------------------- |
+| `0`  | ok — including `created: false` and `valid: null`       | continue                                |
+| `2`  | usage / denied / conflict — a retry can never change it | read `error.code` and recover           |
+| `3`  | infra — control plane unreachable, 5xx                  | retry (see the loop in `exit-codes.md`) |
 
-Codes you will actually branch on: `name_conflict` (use `existing.id`), `not_found`
-(use `candidates`), `project_ambiguous`, `owner_only`, `stale_write`,
+Codes you will actually branch on: `name_conflict` (use `existing.id`),
+`project_not_found` (a selector matched nothing — use `candidates`), `not_found` (a
+`get`/`update` target is gone), `project_ambiguous`, `owner_only`, `stale_write`,
 `org_sharing_unavailable`, `service_key_cannot_create`, `service_key_pinned`,
 `service_key_project_mismatch`, `auth_required`, `usage_error`,
 `control_plane_unavailable`.
@@ -220,7 +247,7 @@ Codes you will actually branch on: `name_conflict` (use `existing.id`), `not_fou
    `agentiqa project list --json` is the only source of truth for what THIS account
    can reach.
 4. **Never create a project just because a command failed.** Read the error code
-   first. `not_found` from a stale selection is fixed by re-selecting, not by minting
-   a duplicate project the user now has to clean up.
+   first. `project_not_found` from a stale selection is fixed by re-selecting, not by
+   minting a duplicate project the user now has to clean up.
 5. **Report the target.** When you tell the user what you did, name the project id,
    its name, and `target.env`.

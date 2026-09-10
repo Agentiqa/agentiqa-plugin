@@ -19,6 +19,12 @@ on that once the exit code told you it is a `2`. See `cli-projects.md`.
 The `1` vs `3` split is deliberate: `1` is a genuine test failure to investigate;
 `3` is transient and safe to retry. Retry only on `3`:
 
+**A lost connection does not by itself mean exit `3` (since CLI v1.1.49).** When a
+plan's connection to the engine dies before the result arrives, the CLI reads that
+attempt's own run record and adopts an already-recorded terminal verdict (exit `0`/`1`)
+instead of reporting a disconnect. Only an attempt with no recorded terminal state
+stays exit `3`, so the retry loop below never re-executes a plan that already finished.
+
 ```bash
 for attempt in 1 2 3; do
   npx -y agentiqa@latest run

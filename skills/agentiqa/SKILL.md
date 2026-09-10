@@ -29,7 +29,7 @@ Needs Node.js 18+.
 **Type `agentiqa`, not `npx agentiqa`.** This plugin installs the CLI globally and
 checks its version at session start, so the binary on your PATH is the one these
 skills document. `npx -y agentiqa@latest` re-resolves the package from the registry
-on every call: it is slower, it can silently run a *different* build than the one the
+on every call: it is slower, it can silently run a _different_ build than the one the
 version check just vetted, and it bypasses any local install a harness has put on
 PATH. Use it only on a machine where `command -v agentiqa` finds nothing — a CI
 runner that does not load this plugin — and keep the `-y` there (bare `npx` prompts

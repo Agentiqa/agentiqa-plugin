@@ -1,0 +1,105 @@
+schema_version: '1.1'
+name: create-project-then-run-plan
+description: >
+  A fresh repo with no Agentiqa project. The agent must create one with
+  `project create --url … --name … --json`, read `project.id` out of the envelope,
+  and run the login plan in THAT project — not in the decoy id the repo mentions.
+tags: [projects, create, wave-1]
+plugins: ['../..']
+
+context:
+  scaffold_script: setup.sh
+
+execution:
+  prompt: |
+    Create an Agentiqa project for https://staging.shop.dev named shop-staging,
+    then run the login test plan in it.
+  max_turns: 25
+  timeout_seconds: 300
+  allowed_tools: [Bash, Read, Grep, Glob]
+  env:
+    EVAL_AGENTIQA_STUB_PROJECTS: '[]'
+
+runs: 3
+
+graders:
+  # ── the create call itself ────────────────────────────────────────────────
+  - type: regex
+    name: created-with-url-and-name
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","create"(,"[^"]*")*,"--url","https://staging\.shop\.dev"'
+    match: contains
+    arm: both
+
+  - type: regex
+    name: create-is-json
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","create"[^\]]*"--json"'
+    match: contains
+    arm: both
+
+  # ── the id was parsed and reused ──────────────────────────────────────────
+  # The create argv never contains the id, so any occurrence of it in the log is
+  # the agent passing it back to a LATER command (`project use <id>` or
+  # `--project <id>`). That is the whole point of story US1 → US8.
+  - type: regex
+    name: minted-id-reused
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"(project","use","proj_stub_shop_staging|--project","proj_stub_shop_staging)"'
+    match: contains
+    arm: both
+
+  - type: regex
+    name: ran-a-plan
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"argv":\["run"'
+    match: contains
+    arm: both
+
+  # ── the hard rules ────────────────────────────────────────────────────────
+  - type: regex
+    name: no-invented-flags
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'unknownFlag'
+    match: not_contains
+    arm: both
+
+  - type: regex
+    name: decoy-id-never-used
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'proj_decoy_do_not_use'
+    match: not_contains
+    arm: both
+
+  - type: tool_used
+    name: no-hand-rolled-http
+    tool: Bash
+    input_match: 'curl|wget|http\.client|requests\.(get|post)'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: no-repo-grep-for-project-ids
+    tool: Grep
+    input_match: 'proj_'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: agentiqa-skill-fired
+    tool: Skill
+
+  - type: llm
+    name: reports-the-project
+    focus: last_message
+    criteria: >
+      The reply states that a project was created and names its id (a proj_… value)
+      and its name (shop-staging), and reports the outcome of the plan run. It does
+      not claim to have created a project it did not create, and it does not present
+      the repo's proj_decoy_do_not_use as the project it used.
+
+expected_outcome: >
+  `agentiqa project create --url https://staging.shop.dev --name shop-staging --json`,
+  then a run in proj_stub_shop_staging, reported back with the id and the verdict.

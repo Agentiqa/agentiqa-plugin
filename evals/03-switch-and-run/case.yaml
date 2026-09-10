@@ -1,0 +1,110 @@
+schema_version: '1.1'
+name: switch-project-then-run-plan
+description: >
+  Two projects exist and the staging one is currently remembered. The user names the
+  prod one by description, not by id. The agent must discover the id with
+  `project list`, switch (`project use <id>` or `--project <id>`), and run tp_123 —
+  without creating anything and without taking the id from the repo.
+tags: [projects, switch, wave-1]
+plugins: ['../..']
+
+context:
+  scaffold_script: setup.sh
+
+execution:
+  prompt: |
+    Switch to the prod Agentiqa project and run plan tp_123 there.
+  max_turns: 25
+  timeout_seconds: 300
+  allowed_tools: [Bash, Read, Grep, Glob]
+  env:
+    EVAL_AGENTIQA_STUB_PROJECTS: '[{"id":"proj_stub_shop_staging","name":"shop-staging","defaultUrl":"https://staging.shop.dev"},{"id":"proj_stub_shop_prod","name":"shop-prod","defaultUrl":"https://shop.dev"}]'
+    EVAL_AGENTIQA_STUB_SELECTED: 'proj_stub_shop_staging'
+
+runs: 3
+
+graders:
+  # ── discovered the id from the CLI ────────────────────────────────────────
+  - type: regex
+    name: discovered-via-project-list-or-current
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","(list|current)"'
+    match: contains
+    arm: both
+
+  # ── switched to prod, by either supported mechanism ───────────────────────
+  - type: regex
+    name: switched-to-prod
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"(project","use","(proj_stub_shop_prod|shop-prod)|--project","(proj_stub_shop_prod|shop-prod))"'
+    match: contains
+    arm: both
+
+  - type: regex
+    name: ran-tp-123
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"argv":\["run"[^\]]*"tp_123"'
+    match: contains
+    arm: both
+
+  # ── nothing was created, nothing was edited ───────────────────────────────
+  - type: regex
+    name: no-project-created
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","create"'
+    match: not_contains
+    arm: both
+
+  - type: regex
+    name: no-project-mutated
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"project","update"'
+    match: not_contains
+    arm: both
+
+  # ── the hard rules ────────────────────────────────────────────────────────
+  - type: regex
+    name: no-invented-flags
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'unknownFlag'
+    match: not_contains
+    arm: both
+
+  - type: regex
+    name: decoy-id-never-used
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'proj_decoy_do_not_use'
+    match: not_contains
+    arm: both
+
+  - type: tool_used
+    name: no-hand-rolled-http
+    tool: Bash
+    input_match: 'curl|wget|http\.client|requests\.(get|post)'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: no-repo-grep-for-project-ids
+    tool: Grep
+    input_match: 'proj_'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: agentiqa-skill-fired
+    tool: Skill
+
+  - type: llm
+    name: reports-the-switch
+    focus: last_message
+    criteria: >
+      The reply names the project it switched to (shop-prod / proj_stub_shop_prod)
+      and reports the outcome of plan tp_123. It does not claim to have run against
+      staging, and it does not invent a project id.
+
+expected_outcome: >
+  project list → project use proj_stub_shop_prod (or run --project proj_stub_shop_prod)
+  → run --plan-id tp_123 --json.

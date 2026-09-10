@@ -1,0 +1,110 @@
+schema_version: '1.1'
+name: create-project-idempotent
+description: >
+  The same request as case 01, but the project already exists — a retried CI job, a
+  re-run of the same instruction. The agent must either declare the intent with
+  `--if-not-exists`, or recover from the `name_conflict` envelope's `existing.id`.
+  It must not mint a twin under a mangled name, and it must not spend a second call
+  looking up the id the error already handed it.
+tags: [projects, create, idempotent, wave-1]
+plugins: ['../..']
+
+context:
+  scaffold_script: setup.sh
+
+execution:
+  prompt: |
+    Create an Agentiqa project for https://staging.shop.dev named shop-staging,
+    then run the login test plan in it.
+  max_turns: 25
+  timeout_seconds: 300
+  allowed_tools: [Bash, Read, Grep, Glob]
+  env:
+    EVAL_AGENTIQA_STUB_PROJECTS: '[{"id":"proj_stub_shop_staging","name":"shop-staging","defaultUrl":"https://staging.shop.dev"}]'
+
+runs: 3
+
+graders:
+  # ── one of the two correct shapes ─────────────────────────────────────────
+  # Either `--if-not-exists` up front, or a create that exited 2 followed by the
+  # id from `existing`. Both are right; anything else is not.
+  - type: regex
+    name: idempotent-or-recovered
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"--if-not-exists"|"exitCode":2[\s\S]*proj_stub_shop_staging'
+    match: contains
+    arm: both
+
+  - type: regex
+    name: reused-the-existing-id
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'proj_stub_shop_staging'
+    match: contains
+    arm: both
+
+  # ── no twin ───────────────────────────────────────────────────────────────
+  # A "shop-staging-2" / "shop_staging2" style rename is the failure this story
+  # exists to prevent (the server deliberately does NOT auto-suffix).
+  - type: regex
+    name: no-mangled-duplicate-name
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"--name","shop[-_ ]?staging[-_ ]?[0-9v]'
+    match: not_contains
+    arm: both
+
+  - type: regex
+    name: at-most-two-create-attempts
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '("project","create"[\s\S]*?){3}'
+    match: not_contains
+    arm: both
+
+  # ── recovery without a round-trip ─────────────────────────────────────────
+  # The failure envelope already carried `existing: { id, name }`. Listing after
+  # the conflict is the round-trip the design removed.
+  - type: regex
+    name: no-list-lookup-after-the-conflict
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: '"exitCode":2[\s\S]*"project","list"'
+    match: not_contains
+    arm: both
+
+  # ── the hard rules ────────────────────────────────────────────────────────
+  - type: regex
+    name: no-invented-flags
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'unknownFlag'
+    match: not_contains
+    arm: both
+
+  - type: regex
+    name: decoy-id-never-used
+    target: { source: file, path: .agentiqa-stub-log.jsonl }
+    pattern: 'proj_decoy_do_not_use'
+    match: not_contains
+    arm: both
+
+  - type: tool_used
+    name: no-hand-rolled-http
+    tool: Bash
+    input_match: 'curl|wget|http\.client|requests\.(get|post)'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: agentiqa-skill-fired
+    tool: Skill
+
+  - type: llm
+    name: says-it-reused-not-created
+    focus: last_message
+    criteria: >
+      The reply makes clear the project already existed and was reused (it does not
+      claim to have created a new project), names the id proj_stub_shop_staging, and
+      reports the plan run. Saying "created" about a project that already existed is
+      a failure.
+
+expected_outcome: >
+  One create carrying --if-not-exists (created:false), or a create that exits 2 and
+  is followed immediately by work against existing.id. No second project.

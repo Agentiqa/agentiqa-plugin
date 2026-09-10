@@ -11,8 +11,8 @@
     "and refresh fixtures/cli-help.txt from that build in the same commit."
   ],
   "minCliVersion": "1.1.73",
-  "minCliVersionPlaceholder": true,
-  "minCliVersionReason": "`agentiqa project get|create|update`, `project list --archived`, and the project --json envelope (target/created/source/valid, error codes name_conflict | not_found | owner_only | stale_write | service_key_*).",
+  "minCliVersionPlaceholder": false,
+  "minCliVersionReason": "Released 2026-09-10 as agentiqa@1.1.73 (npm latest). Requires `agentiqa project get|create|update`, `project list --archived`, and the project --json envelope (target/created/source/valid, error codes name_conflict | not_found | owner_only | stale_write | service_key_*).",
   "helpSnapshot": {
     "path": "fixtures/cli-help.txt",
     "source": "apps/cli/src/__tests__/__snapshots__/usage.txt on Agentiqa/agentiqa branch feature/cli-project-lifecycle-cli — the byte-stable render of `agentiqa --help` from apps/cli/src/argSchema.ts",

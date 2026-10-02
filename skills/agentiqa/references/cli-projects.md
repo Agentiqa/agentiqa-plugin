@@ -27,6 +27,31 @@ minimum in its `cli-requirements.json` and checks it at session start. An older 
 answers `unknown project subcommand` and exits 2; that is a stale install, not a broken
 command.
 
+## Memory, credentials and effective permissions
+
+```bash
+agentiqa project permissions --project proj_ID --json
+agentiqa project memory list --project proj_ID --json
+agentiqa project memory add --project proj_ID --file ./qa-context.txt --category auth --json
+agentiqa project memory update mem_ID --project proj_ID --text "Use staging sign-in" --json
+agentiqa project credentials add --project proj_ID --name tester --login qa@example.com --secret-stdin --json < ./secret.txt
+agentiqa project credentials update cred_ID --project proj_ID --secret-stdin --json < ./rotated-secret.txt
+agentiqa project pool add --project proj_ID --name tester --login shared@example.com --secret-stdin --json < ./shared-secret.txt
+agentiqa project pool list --project proj_ID --json
+```
+
+- Memory: `list`, `add`, `update <id>`, `remove <id>`, `archive <id>`, `restore <id>`, `pin <id>`, `unpin <id>`. `list --include-archived` includes archived notes. `--file -` reads stdin; use either file or text. Settings and memory writes are **project-owner only**, including for org admins. Shared-project members can read memory.
+- Personal credentials: `list`, `add`, `update <id>`, `remove <id>`. Each granted member manages **their own rows**, never another user's. Omitted update fields are preserved; `--login ""` clears the separate login.
+- Shared pool: `list`, `add`, `update <id>`, `remove <id>`, `release <id>`. Writes need the project owner or an org admin on an active Company org's shared project. `permissions` reports `capabilities.pool.write` using the server's decision. `release` force-releases one slot, allowing reacquisition.
+- Secrets: use stdin or `AGENTIQA_CREDENTIAL_SECRET`, never argv. Pool update requires a replacement secret. All outputs redact secrets unless **personal** `credentials list --reveal` was explicitly requested; pooled secrets never appear.
+- Removal: require **exact item id**, explicit `--project <exact-id>` and `--yes`; add `--if-exists` for idempotent teardown. `rm` aliases `remove`. Never guess an id or silently use the remembered project for removal.
+- Output: lists return `items`, writes return `item`, removals return `id/found/removed`, release returns `id/released`. Every resolved operation carries `target`. Exit 2 = usage/denied/conflict; 3 = infrastructure/invalid response. Inspect `error.code`: `owner_only`, `pool_admin_required`, `pooled_credential`, `item_not_found`, `confirmation_required`, `CREDENTIAL_CONFLICT`.
+- Model/viewport/headless/max-actions defaults are local UI session configuration, not writable server-backed project defaults. Do not promise persistent CLI updates to them.
+
+If these commands return `Unknown project subcommand`, upgrade the CLI. The server
+permission checks are resource-specific; membership or org-admin status alone
+does not grant project ownership.
+
 ## The envelope
 
 Success:

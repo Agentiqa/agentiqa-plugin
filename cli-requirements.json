@@ -5,17 +5,16 @@
     "scripts/check-skill-cli-freshness.mjs. Change it HERE and nowhere else.",
     "",
     "BUMP THIS when a skill starts documenting a verb or flag that an older CLI does not",
-    "have. The current value is a PLACEHOLDER: the `agentiqa project create|get|update`",
-    "wave is not published to npm yet. Replace 1.1.73 with the real published version as",
-    "soon as the CLI release carrying `project create` lands on the `latest` dist-tag,",
+    "have. Use the real published version once the release carrying those commands",
+    "lands on the npm `latest` dist-tag,",
     "and refresh fixtures/cli-help.txt from that build in the same commit."
   ],
-  "minCliVersion": "1.1.73",
+  "minCliVersion": "1.1.79",
   "minCliVersionPlaceholder": false,
-  "minCliVersionReason": "Released 2026-09-10 as agentiqa@1.1.73 (npm latest). Requires `agentiqa project get|create|update`, `project list --archived`, and the project --json envelope (target/created/source/valid, error codes name_conflict | not_found | owner_only | stale_write | service_key_*).",
+  "minCliVersionReason": "Released 2026-10-01 as agentiqa@1.1.79 (npm latest). Requires role-aware `project permissions`, `project memory`, `project credentials`, and `project pool` administration, safe secret input/redaction and explicit removal confirmation, alongside the existing project lifecycle commands.",
   "helpSnapshot": {
     "path": "fixtures/cli-help.txt",
-    "source": "apps/cli/src/__tests__/__snapshots__/usage.txt on Agentiqa/agentiqa branch feature/cli-project-lifecycle-cli — the byte-stable render of `agentiqa --help` from apps/cli/src/argSchema.ts",
-    "refreshWith": "agentiqa --help > fixtures/cli-help.txt"
+    "source": "Published agentiqa@1.1.79 --help, gitHead 9c045b1592a5bc94fd0cfaea7c029548684c36f6 (Agentiqa/agentiqa release #3289).",
+    "refreshWith": "agentiqa --help > fixtures/cli-help.txt 2>&1"
   }
 }

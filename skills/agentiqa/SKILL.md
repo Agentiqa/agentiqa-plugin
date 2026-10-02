@@ -49,11 +49,12 @@ AGENTIQA_SERVICE_KEY=sk_... agentiqa run
 The verbs split into three jobs:
 
 - **Choose where the work lands** — the `project` verbs (`list` / `use` / `current` /
-  `get` / `create` / `update`). Everything else operates inside exactly one project,
+  `get` / `create` / `update` / `permissions`, plus `memory`, `credentials` and `pool`
+  management). Everything else operates inside exactly one project,
   so this comes first. See **Projects** below.
 - **Explore & author** — `explore` (discovery + a draft plan) and the plan verbs
-  `plan list` / `plan get <id>` / `plan save --file <path>`, plus `runs get <id>` to
-  read a plan's verdict history. This is the interactive authoring loop below.
+  `plan list` / `plan get <id>` / `plan save --file <path>`, plus `runs get <plan-id | run-id | run-url>`
+  to inspect run verdicts, criteria (expected vs actual), and screenshot URLs. This is the interactive authoring loop below.
 - **Run & gate** — `run` replays saved plans for deterministic pass/fail. Wire this
   into CI.
 
@@ -179,8 +180,9 @@ runs land in that project.
 5. **Run.** `agentiqa run --plan-id "<id>" --json` (hosted by default
    with a service key). Surface each plan's outcome, summary, and `runUrl` when
    present. Add `--share` only if the user asks for a public link.
-6. **Read & revise.** `agentiqa runs get "<id>" --json` reads the
-   verdict history and discovered issues. To change a plan, start from
+6. **Read & revise.** `agentiqa runs get "<target>"` (accepts a plan ID, run ID, or web URL)
+   reads the verdict, step criteria checks with expected and actual values, failure notes,
+   and screenshot URLs, plus discovered issues. To change a plan, start from
    `agentiqa plan get "<id>" --json`, edit the envelope's `plan` (keep
    its `id` and a complete `steps` array), present it, and get explicit approval
    again before re-saving.

@@ -4,9 +4,9 @@ AI-powered testing for web apps.
 Usage:
   agentiqa explore "<prompt>" [flags]
   agentiqa run [--project <id|name>] [flags]
-  agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name>> [--json]
+  agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name> | permissions | memory <verb> | credentials <verb> | pool <verb>> [--project <id|name>] [--json]
   agentiqa plan <list | get <id> | save --file <path>> [--json]
-  agentiqa runs get <plan-id> [--limit <n>] [--json]
+  agentiqa runs get <plan-id | run-id | run-url> [--limit <n>] [--steps] [--json]
   agentiqa labels <list | create <name> | update <id> | delete <id>> [--name <name>] [--color <#rrggbb>] [--json]
   agentiqa login [--api-url <url>] [--no-browser]
   agentiqa logout
@@ -15,9 +15,9 @@ Usage:
 Commands:
   explore  Test a web app with an AI agent
   run      Execute saved test plans
-  project  List, inspect, create, update, and choose projects
+  project  Manage projects, memory, personal credentials, and shared credential pools
   plan     List, show, or save (create/edit) test plans
-  runs     Read run verdicts/history for a saved plan
+  runs     Read run verdicts/history for a saved plan or inspect a specific run
   labels   List, create, rename, or delete the project's labels
   login    Authenticate with Agentiqa (opens browser)
   logout   Remove stored credentials
@@ -87,16 +87,42 @@ Run flags:
                              given.
 
 Project flags:
+  --text <text>              Memory add/update text. Memory verbs: list, add, update <id>,
+                             remove <id>, archive <id>, restore <id>, pin <id>, unpin <id>.
+                             Writes require the project owner.
+  --file <path|->            Memory add/update: read text from a file, or stdin with -.
+                             Mutually exclusive with --text.
+  --category <category>      Memory add/update category. An empty string clears it; omission
+                             preserves the stored category.
+  --include-archived         Memory list: include archived items.
+  --login <login>            Credentials/pool add or update: sign-in login. Credentials
+                             verbs: list, add, update <id>, remove <id>. Pool additionally
+                             supports release <id>. Personal credentials belong only to the
+                             caller; pool writes require a Company project owner or org
+                             admin.
+  --secret-stdin             Credentials/pool add or update: read the secret from stdin (one
+                             trailing newline is removed). Alternatively set
+                             AGENTIQA_CREDENTIAL_SECRET. Secrets are never accepted on argv.
+                             Pool updates require a replacement secret.
+  --reveal                   Credentials list only: include the caller’s personal plaintext
+                             secrets. Default output (including JSON) redacts secrets; pool
+                             secrets are never revealed.
+  --yes                      Confirm memory/credentials/pool remove. Also requires explicit
+                             --project <exact-project-id> and an exact item id.
+  --if-exists                With resource remove --yes: succeed with found:false when the
+                             item is absent from this project and account.
   --clear                    With `project use`: forget the remembered project.
   --archived                 With `project list`: include archived (soft-deleted) projects
-                             and show the ARCHIVED column.
+                             and show the ARCHIVED column. Requires the server-side archived
+                             listing (`?includeDeleted=1`); a control plane without it exits
+                             3 `archived_listing_unsupported` rather than reporting a
+                             live-only list as complete.
   --url <url>                Target URL. Required by `project create` (the project name is
                              derived from its host when --name is omitted); on `project
                              update` it retargets the project, e.g. after a preview deploy.
-  --name <name>              Project name. Optional on `create` (derived from the --url
-                             host: `app.example.com` → `example`); the new name on `update`.
-                             Names are unique per owner, case-insensitively — a collision is
-                             a 409, never a silent rename.
+  --name <name>              Project name on create/update, or credential role/name on
+                             credentials/pool add/update. Project names are unique per
+                             owner, case-insensitively.
   --clear-url                With `project update`: store an EXPLICIT empty default URL.
                              Mutually exclusive with --url; omitting both preserves the
                              stored URL.
@@ -114,9 +140,10 @@ Project flags:
                              With `project update`: opt-in optimistic concurrency. When the
                              stored `updatedAt` differs, the write is refused with exit 2
                              `stale_write` instead of overwriting a concurrent edit.
-  --project <id|name>        With `project current`: the per-invocation selector to report
-                             on (rung 1 of the resolution ladder, above AGENTIQA_PROJECT_ID
-                             and the remembered project).
+  --project <id|name>        Project selector for permissions and resource commands, or the
+                             selection to report for current. Overrides AGENTIQA_PROJECT_ID
+                             and the remembered project. Resource removal requires an
+                             explicit exact project id.
   --json                     Emit the standard JSON envelope on stdout. Every project verb
                              adds `target: { apiBase, env, projectId, name }`. Payloads:
                              `projects` + `selected` (list) / `project` (use) / `projectId`
@@ -152,9 +179,12 @@ Runs flags:
                              case-insensitive name. Overrides AGENTIQA_PROJECT_ID and the
                              project remembered by `agentiqa project use`.
   --limit <n>                Maximum runs to show, newest first by createdAt (default: 5).
+  --steps                    Show detailed step results with criteria (expected/actual) and
+                             screenshot URLs (text mode).
   --json                     Emit the standard JSON envelope on stdout: `runs` is a
                              TestPlanV2Run array (newest first, limit applied) and `issues`
-                             is the bugs discovered for this plan.
+                             is the bugs discovered for this plan; or `run` for an
+                             individual run.
 
 Labels flags:
   --project <id|name>        Project to operate in — an exact id, or a unique
@@ -197,6 +227,8 @@ Common flags:
   --version                  Print the CLI version and exit.
 
 Environment variables:
+  AGENTIQA_CREDENTIAL_SECRET Secret input for project credentials/pool add or update.
+                             --secret-stdin takes precedence. Never printed by default.
   AGENTIQA_API_URL           Override the Agentiqa control-plane API for this invocation.
                              When unset, the environment recorded by your last `agentiqa
                              login` applies (so a staging login keeps every later command on

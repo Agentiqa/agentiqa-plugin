@@ -200,6 +200,36 @@ saved. Never make the user copy a whole plan between surfaces.
 Exit codes for these verbs: branch on the process exit code, not log text — see
 `references/exit-codes.md` (`run` adds `1` for a real failing verdict).
 
+## CI maintenance review (POC-enabled builds)
+
+When CI supplies an Agentiqa QA Review, resume its worklist in the existing coding
+conversation. Confirm `agentiqa --help` includes `review` before using these verbs;
+the experimental surface may not be in the installed release.
+
+Download the latest private `qa-manager-ledger-<run>-<attempt>` artifact and run
+`agentiqa review list --state <ledger-directory> --json`, then
+`agentiqa review get <review-id> --state <ledger-directory> --json`.
+Check the review's project, repository, target and execution before acting.
+Explain the change impact, supporting evidence and uncertainty to the user.
+
+Present the exact proposal and revision; record only the user's stated decision:
+`agentiqa review decide <review-id> --proposal <proposal-id> --revision <version>
+--decision approved|rejected|deferred --actor <human-identity> --reason <rationale>
+--state <ledger-directory> --json`.
+This is delegated approval conveyed by you, not independent human authentication.
+Recording a decision applies nothing. Test changes still require the exact-plan
+approval and engine-grounded authoring loop above; targeted runs and engineering
+escalations also require user direction. Never normalize a product regression by
+weakening a test. Keep original failures visible alongside subsequent passes.
+
+Return the updated ledger through the CI workflow's configured state handoff;
+a locally downloaded copy does not automatically update CI. If that handoff is
+not configured, disclose it rather than claiming the decision is synchronized.
+The POC self-agent workflow accepts a `qa-decision` JSON input containing
+`reviewId`, `proposalId`, `revision`, `action`, `actor` and `reason`; this
+decision-only dispatch records it durably without tests or a model call. The actor
+must be the authenticated GitHub dispatcher. Preserve the user's actual intent.
+
 ## Labels
 
 Labels group a project's plans so a CI job can select a subset:

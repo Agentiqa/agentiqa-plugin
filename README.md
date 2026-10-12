@@ -1,8 +1,18 @@
 # Agentiqa CLI Plugin
 
-AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps + media artifacts (screenshots, video when ffmpeg is available).
+Agentiqa for your coding agent: test what it builds before you ship. Free with Community Edition.
 
-Use it from a coding agent (Claude Code, Cursor), from a terminal, or as a CI step.
+Agentiqa is the independent quality gate for vertical AI agents. This plugin brings it into Claude Code, Cursor and Codex: an AI agent tests your app like a real user and reports bugs with reproduction steps and media artifacts (screenshots, video when ffmpeg is available). Save what matters as test plans and run them as gates in CI.
+
+Use it from a coding agent (Claude Code, Cursor, Codex), from a terminal, or as a CI step.
+
+## Plans
+
+- **Community Edition (free):** 20 runs a month on Agentiqa's cloud, then run locally in the Desktop app. No credit card.
+- **Pro ($39/month):** higher run limits and full cloud access.
+- **Teams and businesses:** on request. Mobile testing available on request.
+
+See [pricing](https://agentiqa.com/en/pricing).
 
 ## What it finds
 
@@ -80,11 +90,6 @@ AGENTIQA_SERVICE_KEY=sk_… agentiqa run --label-ids regression
 The Test Plans page in the [Agentiqa app](https://agentiqa.com) has a **CLI** button that builds the exact one-liner for the plans you select. See [`docs/ci-quickstart.md`](docs/ci-quickstart.md) for the full walkthrough.
 
 ## Setup details
-
-### For mobile testing
-
-- **Android**: Running emulator (`adb devices` shows it)
-- **iOS**: Running simulator (`xcrun simctl list devices` shows it)
 
 ### For video recording (optional)
 

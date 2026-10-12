@@ -2,7 +2,7 @@
   "name": "agentiqa",
   "displayName": "Agentiqa",
   "logo": "assets/logo.svg",
-  "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user.",
+  "description": "Agentiqa for your coding agent: test what it builds before you ship. Free with Community Edition.",
   "version": "0.2.2",
   "author": {
     "name": "Agentiqa",
@@ -11,7 +11,7 @@
   "homepage": "https://agentiqa.com",
   "repository": "https://github.com/Agentiqa/agentiqa-plugin",
   "license": "MIT",
-  "keywords": ["testing", "qa", "mobile", "web", "ai", "automation"],
+  "keywords": ["testing", "qa", "web", "ai", "automation"],
   "skills": "./skills/",
   "hooks": "./hooks/hooks-cursor.json"
 }

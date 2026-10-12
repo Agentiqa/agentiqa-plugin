@@ -1,7 +1,7 @@
 {
   "name": "agentiqa",
   "displayName": "Agentiqa",
-  "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user.",
+  "description": "Agentiqa for your coding agent: test what it builds before you ship. Free with Community Edition.",
   "version": "0.2.1",
   "publisher": "agentiqa",
   "icon": "assets/logo.png",
@@ -21,7 +21,6 @@
     "qa",
     "bugs",
     "visual testing",
-    "mobile testing",
     "ai"
   ],
   "activationEvents": [

@@ -5,13 +5,13 @@
     "email": "a@agentiqa.com"
   },
   "metadata": {
-    "description": "AI-powered testing tools for web and mobile apps"
+    "description": "Agentiqa: The Independent Quality Gate for Vertical AI Agents"
   },
   "plugins": [
     {
       "name": "agentiqa",
       "source": "./",
-      "description": "AI-powered testing for web and mobile apps. Find bugs by letting an AI agent explore your app like a real user."
+      "description": "Agentiqa for your coding agent: test what it builds before you ship. Free with Community Edition."
     }
   ]
 }

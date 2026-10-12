@@ -1,6 +1,8 @@
 # Agentiqa for VS Code
 
-AI-powered testing for web and mobile apps. An AI agent explores your app like a real user and reports bugs with reproduction steps, screenshots, and video.
+Agentiqa for your coding agent: test what it builds before you ship. Free with Community Edition.
+
+An AI agent tests your app like a real user and reports bugs with reproduction steps, screenshots, and video. Community Edition includes 20 runs a month on Agentiqa's cloud, then local runs in the Desktop app; Pro ($39/month) adds higher run limits and full cloud access.
 
 ## What it finds
 

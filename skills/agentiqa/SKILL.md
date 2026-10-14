@@ -122,8 +122,11 @@ shapes:
 single project. `agentiqa project current --json` answers
 `{ projectId, name, source, valid }` where `source` names the winning rung
 (`flag | env | stored | single-project | service-key | none`), so you never infer it.
-`valid: false` means the remembered project is gone — re-select instead of letting
-the next command fail with a bare 404. `project use --clear` forgets it.
+`valid: false` means the remembered project is gone — pin a valid project with
+`--project <id>` (run `project use` only if the user asks) instead of letting the
+next command fail with a bare 404. `project use --clear` forgets it.
+
+**Pin the project per session — never `project use` in a parallel or agent session.** `project use` writes ONE machine-wide selection (`~/.agentiqa/config.json`) shared by every shell and every agent session on the machine, so a parallel session that runs it silently retargets yours, and yours retargets theirs. Pass `--project <id>` on every project-scoped command (`run`, `plan`, `runs`, `labels`, `project` resources), or set `AGENTIQA_PROJECT_ID=<id>` for the session. Agent shells often drop an `export` between commands, so prefer `--project` or an inline `AGENTIQA_PROJECT_ID=<id> agentiqa …` prefix. With the env route, check `agentiqa project current --json` before any write: `source` must be `"env"`; `"stored"` means the env did not reach the command, and another session's `project use` decides where your writes land. Run `project use` only when the user explicitly asks to change the machine default.
 
 **Inspect / retarget.** `project get <id|name> --json` adds `access.isOwner`,
 `sharedVia`, `archived` and `activeRuns`. `project update <id> --url <new-url> --json`
@@ -148,9 +151,11 @@ exits 2 `service_key_pinned`, and `project create` exits 2
    file may belong to another account or environment. `agentiqa project list --json`
    is the only source of truth for what this account can reach.
 4. **Never create a project because a command failed.** Read `error.code` first — a
-   stale selection is fixed by re-selecting, not by minting a duplicate.
+   stale selection is fixed by pinning a valid project with `--project <id>` (run
+   `project use` only if the user asks), not by minting a duplicate.
 5. Report the project id, its name and `target.env` when you tell the user what you
    did.
+6. **Never `agentiqa project use` on your own.** It is machine-wide; pin per session with `--project` or `AGENTIQA_PROJECT_ID` (see Pin the project per session above).
 
 Project verbs never exit `1` — that code is reserved for a real plan verdict from
 `run`. They use `0` / `2` (usage, denied, conflict — retrying cannot help) / `3`
@@ -193,6 +198,14 @@ never those typed fields. When a criterion's _meaning_ must change, re-explore; 
 not rewrite the assertion by hand. On edit, omitted top-level fields are preserved
 from the stored plan; `steps` is always taken from your JSON.
 
+**Dynamic values: use a token, never ask Agentiqa's agent to invent one.** When a step needs a value that must differ per run (a unique title, a search term that should match only this run's record, a fresh sign-up address), write a built-in token in the step text:
+
+- `{{timestamp}}` — the run's start time in Unix seconds (10 digits).
+- `{{unique}}` — the same instant as lowercase letters only, for fields that reject digits.
+- `{{unique-email}}` — the run's own deliverable inbox address; use it as the whole value of an email field (sign-up/verification flows).
+
+`{{timestamp}}`/`{{unique}}` are resolved once per run: every step and every verify criterion of that run sees the same value, so a later step can find what an earlier one created, and the next run gets a new value (`{{unique-email}}` is likewise one address per run). `{{timestamp}}`/`{{unique}}` are unique per run-start second (two runs started in the same second share a value — stagger parallel starts that create the same records). Exact spelling only — lowercase, no spaces inside the braces; `{{ timestamp }}` or `{{Timestamp}}` may reach the agent as plain text. Never write "a random number", "make up a unique name" or "the current time", and never put an example value next to such an instruction: Agentiqa's test agent may reuse a value from an earlier run or type the example verbatim. Example: `Type "Smoke order {{timestamp}}" into the Title field`, then later `Search for "Smoke order {{timestamp}}"`.
+
 **Plan ids are the shared handle.** A `tp_…` id works identically in the web app and
 from the CLI. Receive a web-authored id and `plan get` it; hand back the id you
 saved. Never make the user copy a whole plan between surfaces.
@@ -232,8 +245,11 @@ same "agent proposes, user curates" model.
 
 Two things make Agentiqa CI-safe, both governed and versioned:
 
-1. **Exit codes** — `0` pass · `1` plan failure · `2` usage/config error · `3`
-   infra/runtime error (safe to retry). Branch on the exit code, never on stdout.
+1. **Exit codes** — `0` pass · `1` plan failure · `2` usage/config error or an
+   account limit (`org_cap_exhausted`: the org's run credits are used up or expired —
+   contact Agentiqa support, retrying won't help) · `3` infra/runtime error
+   (`engine_failure` / `engine_disconnect`: safe to retry, but check the run with
+   `agentiqa runs get <plan-id>` first). Branch on the exit code, never on stdout.
    Detail + a retry-on-3 loop: `references/exit-codes.md`.
 2. **JSON envelope** — add `--json` or `AG_OUTPUT=json` to get exactly one JSON
    document on stdout (`schemaVersion: 1`); all logs go to stderr. Shape + fields:

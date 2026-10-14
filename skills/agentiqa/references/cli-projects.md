@@ -173,10 +173,11 @@ infer it:
 | `none`           | nothing is selected                                                  |
 
 ```bash
-agentiqa project use proj_abc --json          # remember it for later commands
-agentiqa run --plan-id tp_123 --project proj_abc --json   # override for one command
-agentiqa project use --clear                  # forget the remembered project
+agentiqa run --plan-id tp_123 --project proj_abc --json   # pin for one command (preferred)
+AGENTIQA_PROJECT_ID=proj_abc agentiqa plan list --json    # pin via env (session or per command)
 agentiqa project current --json               # { projectId, name, source, valid, target }
+agentiqa project use proj_abc --json          # MACHINE-WIDE default — only when the user asks
+agentiqa project use --clear                  # forget the remembered project
 ```
 
 - Prefer an **exact id**. A name is accepted (unique, case-insensitive), but a name
@@ -186,11 +187,21 @@ agentiqa project current --json               # { projectId, name, source, valid
   `update` — is `not_found`.)
 - `valid` in `project current` is the point of the verb: a project deleted in the web
   UI leaves a stale remembered id behind, and every later command would otherwise
-  fail with a 404 that never mentions the selection. `valid: false` ⇒ re-select.
+  fail with a 404 that never mentions the selection. `valid: false` ⇒ pin a valid project
+  with `--project <id>` (run `project use` only if the user asks).
   `valid: null` ⇒ the control plane was unreachable, so it was **not checked** —
   that is not a failure, and the verb still exits 0.
 - `project use` **validates before storing**. A stored id is always one the account
   could reach at the time it was stored.
+
+### Parallel and agent sessions: pin per session, never `project use`
+
+`project use` stores ONE selection in `~/.agentiqa/config.json`, shared by every shell and every agent session on the machine. When several sessions run at once (parallel Claude Code sessions, a teammate's terminal, a background job), one session's `project use` silently retargets every other session's next `run`, `plan save` or `labels` call — a create-mode `plan save` then lands in the wrong project with no error.
+
+- Pass `--project <exact-id>` on every project-scoped command (`run`, `plan`, `runs`, `labels`, and the `project` resource verbs), or set `AGENTIQA_PROJECT_ID=<exact-id>` for the session. `--project` beats the env var; both beat `project use`.
+- Agent shells often do not keep an `export` from one command to the next. Prefer `--project` or an inline `AGENTIQA_PROJECT_ID=<id> agentiqa …` prefix over a one-time `export`.
+- With the env route, check before any write: `agentiqa project current --json` must report `"source": "env"`. `"stored"` means the env did not reach the command and the machine-wide selection — possibly another session's — is in charge.
+- Never run `project use` on your own initiative. Run it only when the user explicitly asks to change the machine's default project.
 
 ## Inspect before acting
 
@@ -281,7 +292,9 @@ therefore present only when the server actually answered — the human table pri
    `agentiqa project list --json` is the only source of truth for what THIS account
    can reach.
 4. **Never create a project just because a command failed.** Read the error code
-   first. `project_not_found` from a stale selection is fixed by re-selecting, not by
-   minting a duplicate project the user now has to clean up.
+   first. `project_not_found` from a stale selection is fixed by pinning a valid project
+   with `--project <id>` (run `project use` only if the user asks), not by minting a
+   duplicate project the user now has to clean up.
 5. **Report the target.** When you tell the user what you did, name the project id,
    its name, and `target.env`.
+6. **Pin per session, never `project use` on your own.** `project use` is machine-wide; parallel sessions overwrite each other's selection. Use `--project` or `AGENTIQA_PROJECT_ID` (see Parallel and agent sessions above).

@@ -77,8 +77,8 @@ agentiqa project list --json      # projects[] when current says none / valid:fa
 ```
 
 - `source` names why that project won: `flag` (`--project`) > `env` (`AGENTIQA_PROJECT_ID`) > `stored` (`agentiqa project use`) > `single-project` > `service-key`. With `AGENTIQA_SERVICE_KEY` set the project is pinned by the key and there is nothing to choose.
-- `valid: false` ⇒ the remembered project is gone; re-select with `agentiqa project use <id>` instead of letting the next command fail with a bare 404.
-- Select for the session with `agentiqa project use <id|name>`, or for a single command with `agentiqa run --project <id|name> …`.
+- `valid: false` ⇒ the remembered project is gone; pin a valid project with `--project <id>` (run `agentiqa project use` only if the user asks) instead of letting the next command fail with a bare 404.
+- Pin the project per session with `--project <id|name>` on each command or `AGENTIQA_PROJECT_ID=<id>`; never run `agentiqa project use` in parallel or agent sessions, because it is one machine-wide selection that other sessions share.
 
 **No project yet, and the user asked to test a URL?** Create one — do not silently test into someone else's project:
 
@@ -292,6 +292,6 @@ If the command fails:
 1. **Exit code 0:** Success — all selected plans passed (or explore completed).
 2. **Exit code 1:** Plan failure — plans ran and at least one failed (`run`).
 3. **Exit code 2:** Usage / configuration error — bad flags, not authenticated, or a selector matched no plans. For `project` verbs (which never exit 1), read `error.code` from the JSON envelope and recover from it: `name_conflict` carries `existing`, an unmatched selector carries `candidates`.
-4. **Exit code 3:** Infra / runtime error — engine unreachable, auth/exchange failure, or quota block. Safe for CI to retry.
+4. **Exit code 3:** Infra / runtime error: engine unreachable, auth/exchange failure, lost engine connection. Check `agentiqa runs get <plan-id>` before retrying. Quota and org-cap blocks are exit 2 (`org_cap_exhausted`: contact Agentiqa support), not 3.
 5. **"Gemini API key not found":** Run `agentiqa login` (opens browser for authentication). Do NOT tell the user to do it manually — run it yourself and wait for completion.
 6. **Playwright/Chromium missing:** Run `npx playwright install chromium` yourself — do not ask the user to do it manually.

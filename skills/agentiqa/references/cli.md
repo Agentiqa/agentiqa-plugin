@@ -143,12 +143,14 @@ subsets a human curated for CI.
 ## runs — read verdicts
 
 ```
-agentiqa runs get <plan-id> [--limit <n>] [--json]
+agentiqa runs get <plan-id | run-id | run-url> [--limit <n>] [--steps] [--json]
 ```
 
-Verdict/history for one saved plan. `--limit <n>` caps the newest-first list
-(default 5). `--json` → `runs` (a `TestPlanV2Run` array) plus `issues` (bugs found
-for the plan).
+Verdict/history for a saved plan, or detailed inspection of an individual run. Accepts a plan id (`tp_...`), a run id (`run_...`), or a web URL to a plan or run.
+
+- **Single run:** `agentiqa runs get run_<id>` (or full web run URL) prints a complete breakdown with step statuses (`[PASSED]`, `[FAILED]`, `[SKIPPED]`), criteria checks with **Expected vs Actual** values, failure notes, and **direct screenshot URLs** on `assets.agentiqa.com`.
+- **Plan history:** `agentiqa runs get tp_<id>` lists recent runs (default 5, capped with `--limit <n>`). Add `--steps` to expand step results, criteria, and screenshot URLs in text mode.
+- **`--json`:** returns `{ run, issues }` (for a single run) or `{ runs, issues }` (for a plan). Each run carries `stepResults` enriched with `expected`, `actual`, `screenshotUrl`, and `screenshots` array.
 
 ## Auth commands
 

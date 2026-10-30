@@ -56,6 +56,9 @@ Exit `3` is never a verdict about the app. Plans that did not reach one carry `o
 
 The Action maps exits to `outcome` buckets: `0` (valid envelope, ≥1 plan) →
 `passed`; `0` with zero plans or no valid envelope → `config-error`; `1` →
-`plan-failure`; `2`/unknown → `config-error`; `3` → `infra-error`. `fail-on:
-plan-failure` (default) fails on plan-failure and config-error and swallows
-retryable infra-error; `fail-on: any` gates on anything nonzero.
+`plan-failure`; `2`/unknown → `config-error`; `3` → `infra-error`, except `3`
+with the envelope's `outcome: "needs-review"` → `needs-review` (no plan failed,
+but some plan has steps that need a person's review: not a pass). `fail-on:
+plan-failure` (default) fails on plan-failure, needs-review and config-error and
+swallows retryable infra-error; `fail-on: any` gates on anything nonzero; only
+`fail-on: never` lets needs-review through.

@@ -37,6 +37,8 @@ every document carries `"schemaVersion": 1` at the top level.
 - When artifacts are captured, an entry may also carry `runUrl`, `videoUrl`,
   `videoPath`, and `artifactDir`. Each is present **only** when available
   (omitted, never `null`).
+- `run` also puts a top-level `batchRunId` (`batch_…`) when it recorded a batch
+  (omitted otherwise): what `agentiqa review --batch` takes (see `review.md`).
 - `runUrl` is set for every cloud run and is also printed to stderr as
   `[<plan title>] Run: <url>`. It opens for members of the run owner's
   organization (team access) — there are no public, login-free run links.

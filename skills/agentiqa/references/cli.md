@@ -2,7 +2,8 @@
 
 Commands: `explore`, `run`, `project` (`list` / `use` / `current` / `get` / `create` /
 `update`), `plan` (`list` / `get` / `save`), `runs get`, `labels` (`list` / `create` /
-`update` / `delete`), `login`, `logout`, `whoami`. The authoritative, always-current
+`update` / `delete`), `review` (the CI review, `list` / `show` / `approve` /
+`reject`), `login`, `logout`, `whoami`. The authoritative, always-current
 flag list is the generated reference at
 `https://docs.agentiqa.com/docs/cli/reference` (or append `.md`).
 
@@ -151,6 +152,22 @@ Verdict/history for a saved plan, or detailed inspection of an individual run. A
 - **Single run:** `agentiqa runs get run_<id>` (or full web run URL) prints a complete breakdown with step statuses (`[PASSED]`, `[FAILED]`, `[SKIPPED]`), criteria checks with **Expected vs Actual** values, failure notes, and **direct screenshot URLs** on `assets.agentiqa.com`.
 - **Plan history:** `agentiqa runs get tp_<id>` lists recent runs (default 5, capped with `--limit <n>`). Add `--steps` to expand step results, criteria, and screenshot URLs in text mode.
 - **`--json`:** returns `{ run, issues }` (for a single run) or `{ runs, issues }` (for a plan). Each run carries `stepResults` enriched with `expected`, `actual`, `screenshotUrl`, and `screenshots` array.
+
+## review — QA Manager's suggestions
+
+```
+agentiqa review --batch <batchRunId> --head <sha> [--since <sha>] [--summary <file.md>] --json   # in CI, after run
+agentiqa review list [--status <a,b>] [--plan <id>] --json
+agentiqa review show <proposalId> [--json]
+agentiqa review approve <proposalId> --revision <n> [--accept-weakening] [--json]
+agentiqa review reject <proposalId> [--revision <n>] [--reason <text>] [--json]
+```
+
+The review leaves cards (Update test? / Possible bug / Add test?) a person decides
+on. `approve` only after the person's explicit yes to that card, and
+`--accept-weakening` only after an explicit yes to the weakening; a service key
+can never approve or reject. Cards, evidence, exit codes and the CI step:
+`review.md`.
 
 ## Auth commands
 

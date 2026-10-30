@@ -9,12 +9,12 @@
     "lands on the npm `latest` dist-tag,",
     "and refresh fixtures/cli-help.txt from that build in the same commit."
   ],
-  "minCliVersion": "1.1.79",
+  "minCliVersion": "1.1.93",
   "minCliVersionPlaceholder": false,
-  "minCliVersionReason": "Released 2026-10-01 as agentiqa@1.1.79 (npm latest). Requires role-aware `project permissions`, `project memory`, `project credentials`, and `project pool` administration, safe secret input/redaction and explicit removal confirmation, alongside the existing project lifecycle commands.",
+  "minCliVersionReason": "Released 2026-10-30 as agentiqa@1.1.93 (npm latest). Adds QA Manager's `review` (after-run review, `review list/show/approve/reject`, cards Update test? / Possible bug / Add test?), which the agentiqa skill now documents in references/review.md.",
   "helpSnapshot": {
     "path": "fixtures/cli-help.txt",
-    "source": "Published agentiqa@1.1.79 --help, gitHead 9c045b1592a5bc94fd0cfaea7c029548684c36f6 (Agentiqa/agentiqa release #3289).",
+    "source": "Published agentiqa@1.1.93 --help (Agentiqa/agentiqa release #3853, merge 6079c0787).",
     "refreshWith": "agentiqa --help > fixtures/cli-help.txt 2>&1"
   }
 }

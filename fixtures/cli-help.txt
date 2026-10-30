@@ -4,10 +4,11 @@ AI-powered testing for web apps.
 Usage:
   agentiqa explore "<prompt>" [flags]
   agentiqa run [--project <id|name>] [flags]
-  agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name> | permissions | memory <verb> | credentials <verb> | pool <verb>> [--project <id|name>] [--json]
-  agentiqa plan <list | get <id> | save --file <path>> [--json]
-  agentiqa runs get <plan-id | run-id | run-url> [--limit <n>] [--steps] [--json]
+  agentiqa project <list | use <id|name> | current | get <id|name> | create --url <url> | update <id|name> | permissions | files <verb> | memory <verb> | credentials <verb> | pool <verb>> [--project <id|name>] [--json]
+  agentiqa plan <list | get <id> | save --file <path> | delete <id> --yes> [--if-exists] [--json]
+  agentiqa runs <get <plan-id | run-id | run-url> | wait <run-id | run-url>> [--limit <n>] [--timeout <sec>] [--steps] [--json]
   agentiqa labels <list | create <name> | update <id> | delete <id>> [--name <name>] [--color <#rrggbb>] [--json]
+  agentiqa review <--head <sha> --batch <id[,id]> | --head <sha> --dry-run [--since <sha>] [--plans-file <plans.json>] | --evidence <bundle.json> --dry-run | collect --head <sha> --batch <id[,id]> --out <file> | list | show <proposalId> | approve <proposalId> --revision <n> [--accept-weakening] | reject <proposalId>> [--json]
   agentiqa login [--api-url <url>] [--no-browser]
   agentiqa logout
   agentiqa whoami
@@ -15,10 +16,11 @@ Usage:
 Commands:
   explore  Test a web app with an AI agent
   run      Execute saved test plans
-  project  Manage projects, memory, personal credentials, and shared credential pools
-  plan     List, show, or save (create/edit) test plans
-  runs     Read run verdicts/history for a saved plan or inspect a specific run
+  project  Manage projects, project files, memory, personal credentials, and shared credential pools
+  plan     List, show, save (create/edit), or delete test plans
+  runs     Read run verdicts/history for a saved plan, inspect a specific run, or wait for a run to finish
   labels   List, create, rename, or delete the project's labels
+  review   Review a CI batch against the code that changed: propose test updates, flag regressions
   login    Authenticate with Agentiqa (opens browser)
   logout   Remove stored credentials
   whoami   Show the current authenticated user
@@ -64,7 +66,8 @@ Run flags:
                              project remembered by `agentiqa project use`. Ignored (and
                              rejected on conflict) when AGENTIQA_SERVICE_KEY is set, since a
                              service key is already scoped to one project.
-  --plan-id <id>             Run a single saved plan by id (project mode).
+  --plan-id <id[,id]>        Run saved plans by id (project mode): one id, or a
+                             comma-separated list. Every id must exist in the project.
   --label-ids <a,b,c>        Run every plan tagged with any of these labels (csv, project
                              mode).
   --label-id <id>            Alias for --label-ids. (deprecated)
@@ -107,10 +110,13 @@ Project flags:
   --reveal                   Credentials list only: include the caller’s personal plaintext
                              secrets. Default output (including JSON) redacts secrets; pool
                              secrets are never revealed.
-  --yes                      Confirm memory/credentials/pool remove. Also requires explicit
-                             --project <exact-project-id> and an exact item id.
+  --yes                      Confirm memory/credentials/pool/files remove. Also requires
+                             explicit --project <exact-project-id> and an exact item id.
   --if-exists                With resource remove --yes: succeed with found:false when the
                              item is absent from this project and account.
+  --rename-on-conflict       With `project files add <path>…`: when a file of the same name
+                             already exists (409), automatically upload under the server’s
+                             suggested alternative name.
   --clear                    With `project use`: forget the remembered project.
   --archived                 With `project list`: include archived (soft-deleted) projects
                              and show the ARCHIVED column. Requires the server-side archived
@@ -169,22 +175,29 @@ Plan flags:
                              emits; use `-` to read from stdin (so `plan get --json | plan
                              save --file -` round-trips). Field values are sent as-is — the
                              server owns all save normalization.
+  --yes                      Confirm `plan delete <id>`. Required to delete a saved test
+                             plan.
+  --if-exists                With `plan delete <id> --yes`: succeed with `found: false`
+                             (exit 0) when the plan is already absent.
   --json                     Emit the standard JSON envelope on stdout: `plans` is a
                              TestPlanV2 array (list) / `plan` is a TestPlanV2 object (get) /
                              `plan` + `lintWarnings` is the saved plan and its lint warnings
-                             (save).
+                             (save) / `id` + `found` + `deleted` (delete).
 
 Runs flags:
   --project <id|name>        Project to operate in — an exact id, or a unique
                              case-insensitive name. Overrides AGENTIQA_PROJECT_ID and the
                              project remembered by `agentiqa project use`.
   --limit <n>                Maximum runs to show, newest first by createdAt (default: 5).
+  --timeout <sec>            With `runs wait <run-id | run-url>`: maximum seconds to wait
+                             for the run to reach a terminal status before exiting 3
+                             (default: 600).
   --steps                    Show detailed step results with criteria (expected/actual) and
                              screenshot URLs (text mode).
   --json                     Emit the standard JSON envelope on stdout: `runs` is a
                              TestPlanV2Run array (newest first, limit applied) and `issues`
                              is the bugs discovered for this plan; or `run` for an
-                             individual run.
+                             individual run (`runs get` / `runs wait`).
 
 Labels flags:
   --project <id|name>        Project to operate in — an exact id, or a unique
@@ -199,6 +212,72 @@ Labels flags:
                              name, color } (create, update) / `deleted` + `detachedPlanIds`
                              is the removed label and the plans it was detached from
                              (delete).
+
+Review flags:
+  --head <sha>               The commit the batch tested (full 40-hex sha). It must exist in
+                             the repository at --repo-path.
+  --batch <id[,id]>          The batch to review (`batchRunId` from the `run --json`
+                             envelope or last-batch.json), then optionally the same-job
+                             rerun batch that confirms regressions. Without it the review is
+                             code-only: the code merged since the last code-only review of
+                             this repo and branch (else --since) against every saved plan,
+                             with no runs (a dry run in this version).
+  --project <id|name>        Project of the batch. Overrides AGENTIQA_PROJECT_ID and the
+                             project remembered by `agentiqa project use`; a service key is
+                             already scoped to one project.
+  --repo <owner/name>        Repository the review is recorded under, and whose pull
+                             requests it reads when GITHUB_TOKEN is set. Default:
+                             GITHUB_REPOSITORY, else the `origin` remote of --repo-path.
+  --branch <name>            Branch the review is recorded under. Required unless
+                             GITHUB_REF_NAME is set.
+  --since <sha>              Bootstrap base (full sha) for plans no earlier review covered.
+                             Without it such a plan is a usage error (exit 2).
+  --repo-path <dir>          Local checkout to read commits and diffs from (read-only git;
+                             default: the current directory). It needs the full history
+                             between each base and --head.
+  --evidence <bundle.json>   Review a saved evidence bundle (from `review collect`) instead
+                             of collecting one. Requires --dry-run and GEMINI_API_KEY; makes
+                             no Agentiqa request at all.
+  --out <file>               Write the review output JSON (proposals, regressions, every
+                             informational bucket). For `review collect`, the evidence
+                             bundle.
+  --summary <file.md>        Write a GitHub-flavored markdown job summary: actionable items
+                             first, the rest collapsed.
+  --dry-run                  Review without writing anything to Agentiqa (no review row,
+                             proposals or issues).
+  --label <name[,name]>      Code-only review: only the saved plans with one of these labels
+                             (names or ids). Default: every saved plan of the project.
+  --plans-file <plans.json>  Code-only review: read the plans from a JSON file (an array of
+                             test plans: id, title, steps) instead of the project. Makes no
+                             Agentiqa request; requires --since and GEMINI_API_KEY (or
+                             --detector-only).
+  --manifest <review.json>   Code-only review: the surfaces manifest (app / tester / ignored
+                             globs) to use instead of `.agentiqa/review.json` at --head.
+  --detector-only            Code-only review: only the model-free literal detector (no
+                             model call, no model key needed).
+  --status <a,b>             `review list`: only proposals in these statuses (proposed,
+                             applied, verified, reopened, reverted, applied_unverifiable,
+                             rejected, accepted).
+  --plan <id>                `review list`: only proposals for this test plan.
+  --revision <n>             `review approve` (required) / `review reject`: the proposal
+                             revision you reviewed, as `review show` / `review list` print
+                             it. A proposal a later review revised is refused
+                             (REVISION_MISMATCH, exit 2); `approve` without it prints the
+                             change and exits 2 (`revision_required`).
+  --accept-weakening         `review approve`: confirm a proposal that weakens the test
+                             (WEAKENS yes in `review list`, "Regression or intended?" in
+                             `review show`) — it loosens what the plan checks and is never
+                             marked verified. Without it such an approve prints the change
+                             and exits 2 (`weakening_requires_confirmation`).
+  --reason <text>            `review reject`: why (up to 500 characters), shown on the
+                             proposal.
+  --json                     Emit the standard JSON envelope on stdout: `review` + `counts`
+                             + `proposals` + `regressions` + `writes`, plus `prIntent` (the
+                             pull-request lookup counts) with GITHUB_TOKEN (review) /
+                             `bundle` (collect) / `proposals` (list) / `proposal` + `diff`
+                             (show) / `proposal` + `plan` (approve) / `proposal` (reject).
+                             approve and reject refuse AGENTIQA_SERVICE_KEY with
+                             `service_key_cannot_approve` (exit 2) before any request.
 
 Login flags:
   --api-url <url>            Control-plane to authenticate against, e.g.
@@ -238,10 +317,14 @@ Environment variables:
                              Invocations authenticated with AGENTIQA_SERVICE_KEY ignore the
                              login-recorded environment — a service key resolves to this
                              variable or the build default only.
-  AGENTIQA_PROJECT_ID        Project the project-scoped commands (run, plan, runs, labels)
-                             operate in. Sits between --project (which wins) and the project
-                             remembered by `agentiqa project use`. Use it to pin a project
-                             for a shell session or a CI job without a service key.
+  AGENTIQA_PROJECT_ID        Project the project-scoped commands (run, plan, runs, labels,
+                             review, project resources) operate in. Sits between --project
+                             (which wins) and the project remembered by `agentiqa project
+                             use`. Use it to pin a project for a shell session or a CI job
+                             without a service key.
+  AGENTIQA_PROJECT           Alias for AGENTIQA_PROJECT_ID. Setting both AGENTIQA_PROJECT_ID
+                             and AGENTIQA_PROJECT to different values is a usage error (exit
+                             2).
   AGENTIQA_SERVICE_KEY       Service key for unattended runs (CI). Replaces interactive
                              login and unlocks hosted engine access — no separate engine
                              token required. It is scoped to ONE project and overrides every
@@ -252,8 +335,26 @@ Environment variables:
   AGENTIQA_ENGINE_TOKEN      Optional internal bearer override for hosted engine HTTP +
                              WebSocket calls. Only needed for internal infra;
                              customer-facing CI should rely on AGENTIQA_SERVICE_KEY instead.
-  GEMINI_API_KEY             BYOK Gemini key. Only needed for the in-process engine (no
-                             --engine) on the default Google model.
+  GEMINI_API_KEY             BYOK Gemini key. Needed for the in-process engine (no --engine)
+                             on the default Google model. `agentiqa review` uses it before
+                             the managed key of your login, and `review --evidence` requires
+                             it.
+  AGENTIQA_REVIEW_MODEL      Gemini model id for `agentiqa review` (default:
+                             gemini-4-argon). Review calls think as little as the model
+                             allows (budget 0 first).
+  GITHUB_TOKEN               Optional for `agentiqa review --batch`: a read-only GitHub
+                             token (pull-requests: read; contents: read on a private
+                             repository). With it the review maps each commit of the window
+                             to its pull request and reads the title and description as
+                             intent evidence (bounded, treated as untrusted text), and each
+                             proposed test update cites the pull request. Without it the
+                             review reads commits only. GitHub failures are counted and
+                             never fail the review. GITHUB_API_URL (set by GitHub Actions,
+                             also on GitHub Enterprise) picks the API host.
+  AGENTIQA_REVIEW_THINKING   Thinking setting of `agentiqa review` calls: auto (default:
+                             budget 0, else the lowest level the model accepts), off,
+                             default (no setting sent), a thinking budget, or minimal | low
+                             | medium | high.
   ANTHROPIC_API_KEY          API key for --model anthropic:<model> (BYOK, Company-only).
                              Honored only when your account is on the Company plan;
                              otherwise ignored and managed runs stay on Google.

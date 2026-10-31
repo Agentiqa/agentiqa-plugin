@@ -139,7 +139,8 @@ recent (the latest release tag, or the previous deployed commit), never a fixed
 old tag. The review is advisory: its step must never fail the job (the Action's
 step always exits 0; a plain `run:` step needs `continue-on-error: true`). For
 the first nights, `review-dry-run: true` (Action) or `--dry-run` (CLI) shows the
-cards it would leave and saves nothing.
+cards it would leave and adds nothing to the project (a batch dry run sends one
+copy to the Agentiqa team).
 
 With the GitHub Action:
 
@@ -148,7 +149,9 @@ permissions:
   contents: read
   pull-requests: read
 steps:
+  # Only the review needs it; a hung checkout fails when its time is up.
   - uses: actions/checkout@v4
+    timeout-minutes: 10
     with:
       fetch-depth: 0
   - uses: agentiqa/qa-action@v1
@@ -159,7 +162,13 @@ steps:
       review-since: v2.14.0 # start for plans without one; keep it recent
 ```
 
-The Action's outputs `batch-run-id`, `review-exit-code` (`0` / `2` / `3`, empty
-when off) and `review-json-path` report it; the review never changes the run's
+A step that fails skips every later step, the Action included, so a failed
+checkout means no plans run that night: check the setup by hand on a day run
+before the first night. A step that hangs holds the job until its timeout: give
+every step that only the review needs (the checkout, finding the deployed
+commit) a `timeout-minutes`. The Action stops a review still running after
+`review-timeout-minutes` (default 30). Its outputs `batch-run-id`,
+`review-exit-code` (`0` / `2` / `3` / `124` stopped at the time limit, empty when
+off) and `review-json-path` report it; the review never changes the run's
 `outcome` or the gate. The CLI form and the `.agentiqa/review.json` manifest:
 `https://docs.agentiqa.com/docs/qa-review`.

@@ -316,8 +316,10 @@ Setup, plan selection, gating, and the full input/output list: `references/githu
 deployed where the plans ran) to the Action, with a full-history checkout
 (`actions/checkout` with `fetch-depth: 0`) and a job `permissions:` block with
 both `contents: read` and `pull-requests: read` (a block sets every scope it does
-not list to none; without `contents: read` the checkout fails). The review runs
-after a red run too and never changes the run's outcome or the gate. Details:
+not list to none; without `contents: read` the checkout fails). A step that
+fails before the Action skips the plan run, so check the setup by hand on a day
+run before the first night, and give the checkout a `timeout-minutes`. The review runs after a red run
+too and never changes the run's outcome or the gate. Details:
 `references/review.md`.
 
 ## Quickstarts for all four surfaces

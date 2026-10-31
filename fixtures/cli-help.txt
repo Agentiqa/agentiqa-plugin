@@ -8,7 +8,7 @@ Usage:
   agentiqa plan <list | get <id> | save --file <path> | delete <id> --yes> [--if-exists] [--json]
   agentiqa runs <get <plan-id | run-id | run-url> | wait <run-id | run-url>> [--limit <n>] [--timeout <sec>] [--steps] [--json]
   agentiqa labels <list | create <name> | update <id> | delete <id>> [--name <name>] [--color <#rrggbb>] [--json]
-  agentiqa review <--head <sha> --batch <id[,id]> | --head <sha> --dry-run [--since <sha>] [--plans-file <plans.json>] | --evidence <bundle.json> --dry-run | collect --head <sha> --batch <id[,id]> --out <file> | list | show <proposalId> | approve <proposalId> --revision <n> [--accept-weakening] | reject <proposalId>> [--json]
+  agentiqa review <--head <sha> --batch <id[,id]> | --head <sha> --dry-run [--since <sha>] [--plans-file <plans.json>] | --evidence <bundle.json> --dry-run | collect --head <sha> --batch <id[,id]> --out <file> | check [--batch <id|latest>] [--head <sha>] | list | show <proposalId> | approve <proposalId> --revision <n> [--accept-weakening] | reject <proposalId>> [--json]
   agentiqa login [--api-url <url>] [--no-browser]
   agentiqa logout
   agentiqa whoami
@@ -215,13 +215,17 @@ Labels flags:
 
 Review flags:
   --head <sha>               The commit the batch tested (full 40-hex sha). It must exist in
-                             the repository at --repo-path.
+                             the repository at --repo-path. `review check`: optional; the
+                             pull-request check then asks GitHub for that commit's pull
+                             requests, like the review.
   --batch <id[,id]>          The batch to review (`batchRunId` from the `run --json`
                              envelope or last-batch.json), then optionally the same-job
                              rerun batch that confirms regressions. Without it the review is
                              code-only: the code merged since the last code-only review of
                              this repo and branch (else --since) against every saved plan,
-                             with no runs (a dry run in this version).
+                             with no runs (a dry run in this version). `review check --batch
+                             <id|latest>`: check that batch (`latest`: the newest finished
+                             batch of the project).
   --project <id|name>        Project of the batch. Overrides AGENTIQA_PROJECT_ID and the
                              project remembered by `agentiqa project use`; a service key is
                              already scoped to one project.
@@ -243,8 +247,10 @@ Review flags:
                              bundle.
   --summary <file.md>        Write a GitHub-flavored markdown job summary: actionable items
                              first, the rest collapsed.
-  --dry-run                  Review without writing anything to Agentiqa (no review row,
-                             proposals or issues).
+  --dry-run                  Review without adding anything to your Agentiqa project: no
+                             review row, suggestions, issues or annotations, and no starting
+                             point moves forward. With --batch, one copy of the review goes
+                             to the Agentiqa team; it does not appear in your project.
   --label <name[,name]>      Code-only review: only the saved plans with one of these labels
                              (names or ids). Default: every saved plan of the project.
   --plans-file <plans.json>  Code-only review: read the plans from a JSON file (an array of
@@ -255,6 +261,19 @@ Review flags:
                              globs) to use instead of `.agentiqa/review.json` at --head.
   --detector-only            Code-only review: only the model-free literal detector (no
                              model call, no model key needed).
+  --repo-map <auto|survey|manifest|defaults>
+                             Where the review learns what in the repository is product, test
+                             code or not worth reading, which hosts it serves and which
+                             files each plan exercises: `auto` (default: a
+                             `.agentiqa/review.json` at --head that lists app, tester,
+                             ignored, hosts or routeFiles is used as written, else the
+                             survey), `survey` (the review model works it out from the plans
+                             and the repository, two extra model calls), `manifest`
+                             (`.agentiqa/review.json` at --head, else the built-in defaults)
+                             or `defaults`. Overrides AGENTIQA_REVIEW_REPO_MAP. If the
+                             survey fails, the review runs on the manifest source and says
+                             so. Secret files are withheld by file convention and the
+                             manifest's `deny` in every mode.
   --status <a,b>             `review list`: only proposals in these statuses (proposed,
                              applied, verified, reopened, reverted, applied_unverifiable,
                              rejected, accepted).
@@ -274,10 +293,13 @@ Review flags:
   --json                     Emit the standard JSON envelope on stdout: `review` + `counts`
                              + `proposals` + `regressions` + `writes`, plus `prIntent` (the
                              pull-request lookup counts) with GITHUB_TOKEN (review) /
-                             `bundle` (collect) / `proposals` (list) / `proposal` + `diff`
-                             (show) / `proposal` + `plan` (approve) / `proposal` (reject).
-                             approve and reject refuse AGENTIQA_SERVICE_KEY with
-                             `service_key_cannot_approve` (exit 2) before any request.
+                             `bundle` (collect) / `setupCheck` (check: one line per
+                             prerequisite, each ok / missing / unchecked; exit 0 all ok, 2
+                             one missing, 3 one not checked) / `proposals` (list) /
+                             `proposal` + `diff` (show) / `proposal` + `plan` (approve) /
+                             `proposal` (reject). approve and reject refuse
+                             AGENTIQA_SERVICE_KEY with `service_key_cannot_approve` (exit 2)
+                             before any request.
 
 Login flags:
   --api-url <url>            Control-plane to authenticate against, e.g.
@@ -355,6 +377,8 @@ Environment variables:
                              budget 0, else the lowest level the model accepts), off,
                              default (no setting sent), a thinking budget, or minimal | low
                              | medium | high.
+  AGENTIQA_REVIEW_REPO_MAP   Repo map source of `agentiqa review` when --repo-map is not
+                             given: auto (default), survey, manifest or defaults.
   ANTHROPIC_API_KEY          API key for --model anthropic:<model> (BYOK, Company-only).
                              Honored only when your account is on the Company plan;
                              otherwise ignored and managed runs stay on Google.

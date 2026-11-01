@@ -8,7 +8,7 @@ Usage:
   agentiqa plan <list | get <id> | save --file <path> | delete <id> --yes> [--if-exists] [--json]
   agentiqa runs <get <plan-id | run-id | run-url> | wait <run-id | run-url>> [--limit <n>] [--timeout <sec>] [--steps] [--json]
   agentiqa labels <list | create <name> | update <id> | delete <id>> [--name <name>] [--color <#rrggbb>] [--json]
-  agentiqa review <--head <sha> --batch <id[,id]> | --head <sha> --dry-run [--since <sha>] [--plans-file <plans.json>] | --evidence <bundle.json> --dry-run | collect --head <sha> --batch <id[,id]> --out <file> | check [--batch <id|latest>] [--head <sha>] | list | show <proposalId> | approve <proposalId> --revision <n> [--accept-weakening] | reject <proposalId>> [--json]
+  agentiqa review <--head <sha> --batch <id[,id]> | --head <sha> --dry-run [--since <sha>] [--plans-file <plans.json>] | --evidence <bundle.json> --dry-run | collect --head <sha> --batch <id[,id]> --out <file> | check [--batch <id|latest>] [--head <sha>] | list | show <proposalId> | approve <proposalId> --revision <n> [--accept-weakening] | reject <proposalId> | trace <trace.json|->> [--json]
   agentiqa login [--api-url <url>] [--no-browser]
   agentiqa logout
   agentiqa whoami
@@ -247,10 +247,31 @@ Review flags:
                              bundle.
   --summary <file.md>        Write a GitHub-flavored markdown job summary: actionable items
                              first, the rest collapsed.
+  --trace-out <file>         Also write the review's trace to this local file (JSON, for
+                             diagnosing a review). It shows how the review reached its
+                             cards: changed file paths, commit subjects, pull request
+                             titles, how plans were linked to files, the AI model's
+                             reasoning, what became of each card, and the tokens used.
+                             Secret-looking values are redacted. It holds no whole files,
+                             diffs or prompts, and no commit message bodies or pull request
+                             descriptions; it does keep the short texts a check compared,
+                             such as a label before and after. Batch review (--batch or
+                             --evidence) only, live or dry run. A trace that cannot be
+                             written is a warning, never a failed review. Print one with
+                             `review trace`.
   --dry-run                  Review without adding anything to your Agentiqa project: no
                              review row, suggestions, issues or annotations, and no starting
                              point moves forward. With --batch, one copy of the review goes
-                             to the Agentiqa team; it does not appear in your project.
+                             to the Agentiqa team so they can check the cards with you: the
+                             cards and summary a saved review would hold, plus a trace of
+                             how the review reached them (changed file paths, commit
+                             subjects, pull request titles, how plans were linked to files,
+                             the AI model's reasoning; secret-looking values redacted). It
+                             holds no whole files, diffs or prompts; like a saved card, it
+                             can quote the short text cited as evidence: a changed line, or
+                             a sentence from a commit message, pull request description or
+                             code comment. Only the Agentiqa team reads it, it does not
+                             appear in your project, and it is deleted after 30 days.
   --label <name[,name]>      Code-only review: only the saved plans with one of these labels
                              (names or ids). Default: every saved plan of the project.
   --plans-file <plans.json>  Code-only review: read the plans from a JSON file (an array of
@@ -269,11 +290,12 @@ Review flags:
                              ignored, hosts or routeFiles is used as written, else the
                              survey), `survey` (the review model works it out from the plans
                              and the repository, two extra model calls), `manifest`
-                             (`.agentiqa/review.json` at --head, else the built-in defaults)
-                             or `defaults`. Overrides AGENTIQA_REVIEW_REPO_MAP. If the
-                             survey fails, the review runs on the manifest source and says
-                             so. Secret files are withheld by file convention and the
-                             manifest's `deny` in every mode.
+                             (`.agentiqa/review.json` at --head when it lists app, tester,
+                             ignored, hosts or routeFiles, else the built-in defaults) or
+                             `defaults`. Overrides AGENTIQA_REVIEW_REPO_MAP. If the survey
+                             fails, the review runs on the manifest source and says so.
+                             Secret files are withheld by file convention and the manifest's
+                             `deny` in every mode.
   --status <a,b>             `review list`: only proposals in these statuses (proposed,
                              applied, verified, reopened, reverted, applied_unverifiable,
                              rejected, accepted).
@@ -290,6 +312,9 @@ Review flags:
                              and exits 2 (`weakening_requires_confirmation`).
   --reason <text>            `review reject`: why (up to 500 characters), shown on the
                              proposal.
+  --price <in>/<out>         `review trace`: also print the dollars of each model pass at
+                             this price, in USD per million input and output tokens (e.g.
+                             2/10). Without it the trace shows tokens only.
   --json                     Emit the standard JSON envelope on stdout: `review` + `counts`
                              + `proposals` + `regressions` + `writes`, plus `prIntent` (the
                              pull-request lookup counts) with GITHUB_TOKEN (review) /
@@ -297,9 +322,9 @@ Review flags:
                              prerequisite, each ok / missing / unchecked; exit 0 all ok, 2
                              one missing, 3 one not checked) / `proposals` (list) /
                              `proposal` + `diff` (show) / `proposal` + `plan` (approve) /
-                             `proposal` (reject). approve and reject refuse
-                             AGENTIQA_SERVICE_KEY with `service_key_cannot_approve` (exit 2)
-                             before any request.
+                             `proposal` (reject) / `source` + `trace` (trace). approve and
+                             reject refuse AGENTIQA_SERVICE_KEY with
+                             `service_key_cannot_approve` (exit 2) before any request.
 
 Login flags:
   --api-url <url>            Control-plane to authenticate against, e.g.

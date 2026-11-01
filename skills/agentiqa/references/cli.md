@@ -3,7 +3,7 @@
 Commands: `explore`, `run`, `project` (`list` / `use` / `current` / `get` / `create` /
 `update`), `plan` (`list` / `get` / `save`), `runs get`, `labels` (`list` / `create` /
 `update` / `delete`), `review` (the CI review, `list` / `show` / `approve` /
-`reject`), `login`, `logout`, `whoami`. The authoritative, always-current
+`reject` / `trace`), `login`, `logout`, `whoami`. The authoritative, always-current
 flag list is the generated reference at
 `https://docs.agentiqa.com/docs/cli/reference` (or append `.md`).
 
@@ -161,13 +161,16 @@ agentiqa review list [--status <a,b>] [--plan <id>] --json
 agentiqa review show <proposalId> [--json]
 agentiqa review approve <proposalId> --revision <n> [--accept-weakening] [--json]
 agentiqa review reject <proposalId> [--revision <n>] [--reason <text>] [--json]
+agentiqa review trace <trace.json|-> [--price <in>/<out>]   # offline: print a --trace-out trace
 ```
 
 The review leaves cards (Update test? / Possible bug / Add test?) a person decides
 on. `approve` only after the person's explicit yes to that card, and
 `--accept-weakening` only after an explicit yes to the weakening; a service key
 can never approve or reject. Cards, evidence, exit codes and the CI step:
-`review.md`.
+`review.md`. To see how a review reached its cards, add `--trace-out <file>` to the
+review and print the file with `review trace` (no request; `--price` in USD per
+million input/output tokens adds the cost).
 
 ## Auth commands
 

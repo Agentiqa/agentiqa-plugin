@@ -1,7 +1,7 @@
 {
   "name": "agentiqa",
   "description": "Agentiqa for your coding agent: test what it builds before you ship. Free with Community Edition.",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "author": {
     "name": "Agentiqa",
     "email": "a@agentiqa.com"

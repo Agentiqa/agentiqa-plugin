@@ -253,12 +253,26 @@ Review flags:
                              titles, how plans were linked to files, the AI model's
                              reasoning, what became of each card, and the tokens used.
                              Secret-looking values are redacted. It holds no whole files,
-                             diffs or prompts, and no commit message bodies or pull request
-                             descriptions; it does keep the short texts a check compared,
-                             such as a label before and after. Batch review (--batch or
-                             --evidence) only, live or dry run. A trace that cannot be
-                             written is a warning, never a failed review. Print one with
-                             `review trace`.
+                             diffs or prompts (the diff hunks of --trace-hunks go only into
+                             the dry-run copy, never into this file), and no commit message
+                             bodies or pull request descriptions; it does keep the short
+                             texts a check compared, such as a label before and after. Batch
+                             review (--batch or --evidence) only, live or dry run. A trace
+                             that cannot be written is a warning, never a failed review.
+                             Print one with `review trace`.
+  --trace-hunks              Opt-in, with --dry-run only: the review's trace also carries
+                             the diff hunks each of its decisions rested on (a claim about a
+                             failed or at-risk step, a decision, a card, a possible bug):
+                             the changed lines as the AI model read them, or the one
+                             commit's change a check compared, for the files and commits the
+                             decision cites. Each hunk is stored once, secret-looking values
+                             are redacted, and lines, hunks per decision and the total are
+                             capped. They go only into the dry-run copy for the Agentiqa
+                             team (read by the team only, deleted after 30 days): never into
+                             a saved review, --json, --out, --summary or the --trace-out
+                             file. Without --dry-run it is a usage error (exit 2).
+                             AGENTIQA_REVIEW_TRACE_HUNKS=1 opts in the same way; a live
+                             review ignores it with a warning.
   --dry-run                  Review without adding anything to your Agentiqa project: no
                              review row, suggestions, issues or annotations, and no starting
                              point moves forward. With --batch, one copy of the review goes
@@ -267,11 +281,12 @@ Review flags:
                              how the review reached them (changed file paths, commit
                              subjects, pull request titles, how plans were linked to files,
                              the AI model's reasoning; secret-looking values redacted). It
-                             holds no whole files, diffs or prompts; like a saved card, it
-                             can quote the short text cited as evidence: a changed line, or
-                             a sentence from a commit message, pull request description or
-                             code comment. Only the Agentiqa team reads it, it does not
-                             appear in your project, and it is deleted after 30 days.
+                             holds no whole files, diffs or prompts unless you opt in to the
+                             diff hunks with --trace-hunks; like a saved card, it can quote
+                             the short text cited as evidence: a changed line, or a sentence
+                             from a commit message, pull request description or code
+                             comment. Only the Agentiqa team reads it, it does not appear in
+                             your project, and it is deleted after 30 days.
   --label <name[,name]>      Code-only review: only the saved plans with one of these labels
                              (names or ids). Default: every saved plan of the project.
   --plans-file <plans.json>  Code-only review: read the plans from a JSON file (an array of
@@ -404,6 +419,11 @@ Environment variables:
                              | medium | high.
   AGENTIQA_REVIEW_REPO_MAP   Repo map source of `agentiqa review` when --repo-map is not
                              given: auto (default), survey, manifest or defaults.
+  AGENTIQA_REVIEW_TRACE_HUNKS
+                             `1`: the same opt-in as `review --trace-hunks` (the dry-run
+                             copy's trace carries the diff hunks each decision rested on).
+                             Read on a dry run only; a live review ignores it with a
+                             warning.
   ANTHROPIC_API_KEY          API key for --model anthropic:<model> (BYOK, Company-only).
                              Honored only when your account is on the Company plan;
                              otherwise ignored and managed runs stay on Google.

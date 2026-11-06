@@ -8,8 +8,8 @@ Use it from a coding agent (Claude Code, Cursor, Codex), from a terminal, or as 
 
 ## Plans
 
-- **Community Edition (free):** 20 runs a month on Agentiqa's cloud, then run locally in the Desktop app. No credit card.
-- **Pro ($39/month):** higher run limits and full cloud access.
+- **Community Edition (free):** 20 free runs a month, each up to 25 agent steps, counted across cloud, Desktop, CLI and GitHub Action. When you reach the limit, `agentiqa run` exits `2`. No credit card.
+- **Pro ($39/month):** higher limits and full cloud access. Upgrade when you need more than the free runs.
 - **Teams and businesses:** on request. Mobile testing available on request.
 
 See [pricing](https://agentiqa.com/en/pricing).

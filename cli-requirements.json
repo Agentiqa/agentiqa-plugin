@@ -9,12 +9,12 @@
     "lands on the npm `latest` dist-tag,",
     "and refresh fixtures/cli-help.txt from that build in the same commit."
   ],
-  "minCliVersion": "1.1.97",
+  "minCliVersion": "1.1.119",
   "minCliVersionPlaceholder": false,
-  "minCliVersionReason": "Released 2026-11-01 as agentiqa@1.1.97 (npm latest). Adds `review trace` and `review --trace-out`, which the agentiqa skill now documents in references/cli.md.",
+  "minCliVersionReason": "Released 2026-11-11 as agentiqa@1.1.119 (npm latest). Adds `project update --review-instructions / --review-cards / --review-max-cards` and `project get --review-instructions` (the team's review instructions for QA Manager), which the agentiqa skill now documents in SKILL.md, references/review.md and references/cli-projects.md.",
   "helpSnapshot": {
     "path": "fixtures/cli-help.txt",
-    "source": "Published agentiqa@1.1.97 --help (Agentiqa/agentiqa release #3890, merge 4634525c9).",
+    "source": "Published agentiqa@1.1.119 --help (Agentiqa/agentiqa release #4022, merge 28c6ecb99).",
     "refreshWith": "agentiqa --help > fixtures/cli-help.txt 2>&1"
   }
 }

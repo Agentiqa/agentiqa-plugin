@@ -35,7 +35,7 @@ the Action included, so a failed checkout means no plans run that night: check
 the setup by hand on a day run before the first night, and give steps only the
 review needs (the checkout, finding the deployed commit) a `timeout-minutes`. `review-since` sets where
 plans without a starting point start: keep it recent. `review-dry-run: true`
-adds nothing to the project and sends one copy to the Agentiqa team (first nights). `review-timeout-minutes` (default 30) stops a review
+adds nothing to the project and sends one copy to the Agentiqa team (first nights). `review-timeout-minutes` (default 40; the CLI gets 2 minutes less) stops a review
 that runs longer. The review runs on Agentiqa's managed model access and never
 changes `outcome` or the gate. See `review.md`.
 

@@ -234,6 +234,11 @@ overwriting someone else's change. It is opt-in — omit it and last write wins.
 Editing project settings is **owner-only**. On a project shared with you, `update`
 exits 2 `owner_only` and names the affordance; ask the owner rather than retrying.
 
+The review instructions (`--review-instructions <file|->`, `--review-cards <kinds|all>`,
+`--review-max-cards <n|none>`) are the exception: anyone who can open the project
+may change them, with a person's login. A flag you omit keeps the stored value.
+See `references/review.md` for what they do.
+
 ## Under a service key (CI)
 
 `AGENTIQA_SERVICE_KEY` is scoped to exactly ONE project, so the whole selection

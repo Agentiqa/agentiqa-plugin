@@ -120,6 +120,27 @@ since the card was made; the next review refreshes it), `not_found`,
 `service_key_cannot_approve`, `auth_required` · `3` network or control plane
 (retry).
 
+## The team's review instructions
+
+A team can tell the review in its own words what matters: about the app, what to
+check first and what last, how its tests are written, which cards not to propose,
+plus two switches (card kinds off, at most N cards a night). They live in the
+project (the **Review instructions** tab on the Suggestions page), are versioned,
+and apply from the next review. Every card they hide is listed in the review's
+summary under **Not shown because of your instructions**, with the line it rests on.
+
+```bash
+agentiqa project get <project> --review-instructions > instructions.md   # the text in force
+agentiqa project update <project> --review-instructions instructions.md   # save a new version
+agentiqa project update <project> --review-cards update,add_test --review-max-cards 10
+```
+
+- Change them only when the person asks you to, and show them the new text first.
+- They are the team's preferences, not a fix for a wrong card. A card that is wrong
+  for a reason that would hold on any app goes to the Agentiqa team (reject it with
+  the reason), not into the instructions.
+- Saving needs a person's login (`agentiqa login`); a service key cannot.
+
 ## In CI
 
 The review belongs in the same job as `agentiqa run`, after it, and runs even when
@@ -167,7 +188,7 @@ checkout means no plans run that night: check the setup by hand on a day run
 before the first night. A step that hangs holds the job until its timeout: give
 every step that only the review needs (the checkout, finding the deployed
 commit) a `timeout-minutes`. The Action stops a review still running after
-`review-timeout-minutes` (default 30). Its outputs `batch-run-id`,
+`review-timeout-minutes` (default 40; the CLI gets 2 minutes less). Its outputs `batch-run-id`,
 `review-exit-code` (`0` / `2` / `3` / `124` stopped at the time limit, empty when
 off) and `review-json-path` report it; the review never changes the run's
 `outcome` or the gate. The CLI form and the `.agentiqa/review.json` manifest:

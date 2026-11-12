@@ -258,6 +258,11 @@ and leaves at most **one card per test step**:
 - **Add test?** — a change users will see that no plan covers.
 
 A person decides on every card. You help them decide; you never decide for them.
+Give them each card's link with the card: every proposal in `--json` carries `url`
+(an open card on the project's Suggestions page, a decided one on its plan; CLI
+1.1.121 or newer), and the text `review list` ends with the Suggestions page's link.
+Asked what the last review found, list the open cards (`review list --status
+proposed --json`) with their links.
 
 ```bash
 agentiqa review list --status proposed --json        # the open cards

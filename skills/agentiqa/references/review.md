@@ -53,11 +53,12 @@ agentiqa review reject <proposalId> [--revision <n>] [--reason <text>] [--json]
   to 100): `{ ok, schemaVersion: 1, projectId, proposals: [...] }`. Without
   `--status` it lists every status (`proposed`, `applied`, `verified`, `reopened`,
   `reverted`, `applied_unverifiable`, `rejected`, `accepted`). `--plan` narrows to
-  one test plan.
+  one test plan. Each proposal carries `url`, its link in the Agentiqa app; the
+  text list ends with the link to the project's Suggestions page.
 - **`review show <id>`** — one card as the person sees it: the card, its id,
   revision and status, a weakening warning, the full before → after of every
   edited step, and the exact approve command for that revision. Show this text to
-  the person. `--json` → `{ proposal, diff }`.
+  the person, with the card's link. `--json` → `{ proposal, diff }`.
 - **`review approve <id> --revision <n>`** — approves exactly revision `<n>`. An
   update card changes the plan at once (`--json` → `{ proposal, plan }`); the next
   review checks it against a run. An Add test card becomes `accepted` and carries
@@ -82,7 +83,10 @@ with `outcome: "regression"` and the `suspectedCommits`. Treat it as a Possible 
 ### Fields you will use
 
 `id`, `revision`, `status`, `kind`, `source`, `testPlanId`, `title`, `rationale`
-(AI-written), `edits` (the change to the plan), `weakensTest`, `riskFlags`, and
+(AI-written), `edits` (the change to the plan), `weakensTest`, `riskFlags`, `url`
+(where the person opens the card: an open one on the project's Suggestions page, a
+decided one on its plan page, or the page's Decided view for an Add test card; null
+when the CLI targets no known Agentiqa environment; CLI 1.1.121 or newer), and
 `evidence`:
 
 - `runIds` — the runs whose failure the card explains;

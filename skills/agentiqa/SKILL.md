@@ -284,7 +284,7 @@ agentiqa review reject <proposalId> --reason "<why>"
    and the AI explanation come from the repo and a model.
 
 **Tuning the review: the team's instructions.** A team can tell QA Manager in its
-own words what matters (about the app, what to check first and last, how its tests
+own words what matters (about the app, which areas matter most, how its tests
 are written, which cards not to propose), turn card kinds off and cap the cards a
 night. They live in the project, are versioned, and apply from the next review, with
 no CI change. Every card they hide is listed in the review's summary with the line it

@@ -122,8 +122,8 @@ since the card was made; the next review refreshes it), `not_found`,
 
 ## The team's review instructions
 
-A team can tell the review in its own words what matters: about the app, what to
-check first and what last, how its tests are written, which cards not to propose,
+A team can tell the review in its own words what matters: about the app, which
+areas matter most, how its tests are written, which cards not to propose,
 plus two switches (card kinds off, at most N cards a night). They live in the
 project (the **Review instructions** tab on the Suggestions page), are versioned,
 and apply from the next review. Every card they hide is listed in the review's
